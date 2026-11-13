@@ -7,6 +7,7 @@ import { WelcomeModal } from './components/UI/WelcomeModal';
 import { JoinTableModal } from './components/UI/JoinTableModal';
 import { MenuModal } from './components/UI/MenuModal';
 import { RotateOrientationOverlay } from './components/UI/RotateOrientationOverlay';
+import { VirtualJoystick } from './components/UI/VirtualJoystick';
 import { useMultiplayer } from './hooks/useMultiplayer';
 import { ChairSlot, PlayerAction, WeatherMood, PochaMenuItem } from './types';
 import { TableServing } from './components/PochaTable';
@@ -21,6 +22,7 @@ export const App: React.FC = () => {
   const [servingToast, setServingToast] = useState<string | null>(null);
   const myRealtimePos = React.useRef<[number, number, number]>([0, 0, 4.6]);
   const myRealtimeRot = React.useRef<number>(Math.PI);
+  const joystickVector = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // 테이블별 서빙 상태: 초기에는 NPC들이 앉아있는 테이블만 술과 안주가 있고, 빈 테이블은 아무것도 없음!
   const [tableServings, setTableServings] = useState<Record<string, TableServing>>({
@@ -188,6 +190,7 @@ export const App: React.FC = () => {
             }}
             weatherMood={weatherMood}
             tableServings={tableServings}
+            joystickVector={joystickVector}
           />
         </Canvas>
       </div>
@@ -208,7 +211,16 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* 4. 하단 상호작용 오버레이 */}
+      {/* 4. 모바일 가상 조이스틱 (터치 및 마우스 아날로그 360도 이동) */}
+      {hasEntered && (
+        <VirtualJoystick
+          onMove={(x, y) => {
+            joystickVector.current = { x, y };
+          }}
+        />
+      )}
+
+      {/* 5. 하단 상호작용 오버레이 */}
       {hasEntered && (
         <ActionOverlay
           currentChair={currentChair}

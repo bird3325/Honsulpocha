@@ -33,6 +33,7 @@ interface PochaSceneProps {
   ) => void;
   weatherMood?: WeatherMood;
   tableServings?: Record<string, TableServing>;
+  joystickVector?: React.MutableRefObject<{ x: number; y: number }>;
 }
 
 export const PochaScene: React.FC<PochaSceneProps> = ({
@@ -46,6 +47,7 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
   onRequestJoinTable,
   weatherMood = 'rainy',
   tableServings,
+  joystickVector,
 }) => {
   const keys = useKeyboard();
   const playerPos = useRef<[number, number, number]>([0, 0, 4.6]); // 처음 시작 시 포장마차 입구 중앙에 배치
@@ -231,6 +233,38 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
     executeSitChair(chair);
   };
 
+  // 모바일 [앉기] 버튼 클릭 시 가장 가까운 빈 의자 자동 착석
+  useEffect(() => {
+    const handleSitNearest = () => {
+      if (currentChair) {
+        handleStandUp();
+        return;
+      }
+      let closestChair: ChairSlot | null = null;
+      let minDistance = 2.6;
+
+      chairSlots.forEach((chair) => {
+        if (!chair.isOccupied) {
+          const dist = Math.hypot(
+            chair.position[0] - playerPos.current[0],
+            chair.position[2] - playerPos.current[2]
+          );
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestChair = chair;
+          }
+        }
+      });
+
+      if (closestChair) {
+        handleSitChair(closestChair);
+      }
+    };
+
+    window.addEventListener('pocha_sit_nearest', handleSitNearest);
+    return () => window.removeEventListener('pocha_sit_nearest', handleSitNearest);
+  }, [chairSlots, currentChair]);
+
   const handleStandUp = () => {
     if (!currentChair) return;
     targetChairRef.current = null;
@@ -281,7 +315,7 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
     }
     lastInteractRef.current = keys.interact;
 
-    // 2. 키보드 이동 (카메라 시야 기준 직관적인 4방향 이동 & 즉각적인 전방 회전)
+    // 2. 키보드 + 모바일 가상 조이스틱 이동 (카메라 시야 기준 360도 이동 & 즉각적인 전방 회전)
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
     forward.y = 0;
@@ -291,27 +325,41 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
     const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
     const moveDir = new THREE.Vector3(0, 0, 0);
+    // 키보드 입력
     if (keys.forward) moveDir.add(forward);
     if (keys.backward) moveDir.sub(forward);
     if (keys.right) moveDir.add(right);
     if (keys.left) moveDir.sub(right);
+
+    // 모바일 조이스틱 입력 (jx: -1 ~ 1, jy: -1 ~ 1)
+    let joystickStrength = 0;
+    if (joystickVector?.current) {
+      const jx = joystickVector.current.x;
+      const jy = joystickVector.current.y;
+      joystickStrength = Math.hypot(jx, jy);
+      if (joystickStrength > 0.08) {
+        // jy < 0 (위로 드래그 = 전방), jy > 0 (아래로 드래그 = 후방)
+        moveDir.addScaledVector(forward, -jy);
+        moveDir.addScaledVector(right, jx);
+      }
+    }
 
     if (moveDir.lengthSq() > 0.001) {
       if (currentChair) {
         handleStandUp();
       }
       targetPos.current = null;
-      targetChairRef.current = null; // 키보드 조작 시 의자 자동 이동 취소
+      targetChairRef.current = null; // 이동 조작 시 의자 자동 이동 취소
       isMoving = true;
 
       moveDir.normalize();
 
       // 캐릭터가 이동하는 방향을 정면으로 즉시 바라보도록 정확한 각도 계산
-      // 모델 기본 축(rotation = 0)이 +Z를 향하므로 Math.atan2(moveDir.x, moveDir.z)가 정확한 정면 방향
       const targetAngle = Math.atan2(moveDir.x, moveDir.z);
       playerRot.current = targetAngle;
 
-      const speed = 2.8 * delta;
+      const speedMultiplier = joystickStrength > 0.08 ? Math.min(1.0, joystickStrength) : 1.0;
+      const speed = 2.8 * speedMultiplier * delta;
       playerPos.current[0] += moveDir.x * speed;
       playerPos.current[2] += moveDir.z * speed;
 
@@ -466,6 +514,8 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
           characterType={myPlayer.characterType}
           position={playerPos.current}
           rotation={playerRot.current}
+          positionRef={playerPos}
+          rotationRef={playerRot}
           action={myAction}
           isSeated={!!currentChair}
           isMe={true}

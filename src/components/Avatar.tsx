@@ -8,8 +8,10 @@ interface AvatarProps {
   nickname: string;
   color?: string; // 셔츠 색상
   characterType?: string;
-  position: [number, number, number];
-  rotation: number;
+  position?: [number, number, number];
+  rotation?: number;
+  positionRef?: React.MutableRefObject<[number, number, number]>;
+  rotationRef?: React.MutableRefObject<number>;
   action: PlayerAction;
   isSeated?: boolean; // 의자 착석 여부 (액션과 독립적으로 실제 착석 상태 유지)
   isMe?: boolean;
@@ -18,8 +20,10 @@ interface AvatarProps {
 export const Avatar: React.FC<AvatarProps> = ({
   nickname,
   color = '#ecf0f1', // 기본 밝은 와이셔츠
-  position,
-  rotation,
+  position = [0, 0, 0],
+  rotation = 0,
+  positionRef,
+  rotationRef,
   action,
   isSeated,
   isMe = false,
@@ -36,10 +40,15 @@ export const Avatar: React.FC<AvatarProps> = ({
   useFrame((state, delta) => {
     if (!groupRef.current) return;
 
-    // 내 캐릭터는 입력 즉시 100% 회전 및 위치를 반영하여 지연/뒤로가기/옆걸음 현상 완전 방지
+    // 내 캐릭터는 React re-render와 무관하게 positionRef와 rotationRef를 매 프레임 직접 읽어 즉각 회전!
     if (isMe) {
-      groupRef.current.position.set(position[0], position[1], position[2]);
-      groupRef.current.rotation.y = rotation;
+      const curX = positionRef ? positionRef.current[0] : position[0];
+      const curY = positionRef ? positionRef.current[1] : position[1];
+      const curZ = positionRef ? positionRef.current[2] : position[2];
+      const curRot = rotationRef ? rotationRef.current : rotation;
+
+      groupRef.current.position.set(curX, curY, curZ);
+      groupRef.current.rotation.y = curRot;
     } else {
       // 다른 원격 플레이어들은 네트워크 패킷 위치 보간
       groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, position[0], delta * 10);
