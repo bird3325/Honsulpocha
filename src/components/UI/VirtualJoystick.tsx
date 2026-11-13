@@ -12,7 +12,7 @@ export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({ onMove }) => {
   const [isActive, setIsActive] = useState<boolean>(false);
   const touchIdRef = useRef<number | null>(null);
 
-  const RADIUS = 48; // 조이스틱 가동 반경 (px)
+  const RADIUS = 40; // 모바일 화면 전경을 가리지 않는 컴팩트 가동 반경 (px)
 
   const handlePointerStart = (clientX: number, clientY: number, touchId?: number) => {
     if (!containerRef.current) return;
@@ -138,52 +138,52 @@ export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({ onMove }) => {
           handlePointerStart(t.clientX, t.clientY, t.identifier);
         }
       }}
-      className="fixed left-5 bottom-6 z-40 select-none touch-none flex items-center justify-center cursor-pointer pointer-events-auto"
+      className="fixed left-4 bottom-4 z-40 select-none touch-none flex items-center justify-center cursor-pointer pointer-events-auto"
       style={{
-        width: '136px',
-        height: '136px',
+        width: '112px',
+        height: '112px',
         borderRadius: '50%',
         background: isActive
-          ? 'radial-gradient(circle, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.88) 100%)'
-          : 'radial-gradient(circle, rgba(30, 41, 59, 0.45) 0%, rgba(15, 23, 42, 0.65) 100%)',
-        backdropFilter: 'blur(8px)',
-        border: '2px solid rgba(255, 255, 255, 0.22)',
+          ? 'radial-gradient(circle, rgba(30, 41, 59, 0.65) 0%, rgba(15, 23, 42, 0.78) 100%)'
+          : 'radial-gradient(circle, rgba(30, 41, 59, 0.28) 0%, rgba(15, 23, 42, 0.48) 100%)',
+        backdropFilter: 'blur(6px)',
+        border: '1.5px solid rgba(255, 255, 255, 0.18)',
         boxShadow: isActive
-          ? '0 0 25px rgba(245, 158, 11, 0.45), inset 0 0 15px rgba(0, 0, 0, 0.5)'
-          : '0 8px 24px rgba(0, 0, 0, 0.4), inset 0 0 10px rgba(0, 0, 0, 0.5)',
+          ? '0 0 20px rgba(245, 158, 11, 0.35), inset 0 0 10px rgba(0, 0, 0, 0.4)'
+          : '0 6px 18px rgba(0, 0, 0, 0.3), inset 0 0 8px rgba(0, 0, 0, 0.4)',
       }}
       title="모바일 방향 컨트롤러 (터치/드래그하여 이동)"
     >
       {/* 4방향 가이드 화살표 */}
-      <span className="absolute top-2 text-[10px] text-white/40 font-black">▲</span>
-      <span className="absolute bottom-2 text-[10px] text-white/40 font-black">▼</span>
-      <span className="absolute left-2 text-[10px] text-white/40 font-black">◀</span>
-      <span className="absolute right-2 text-[10px] text-white/40 font-black">▶</span>
+      <span className="absolute top-1.5 text-[9px] text-white/35 font-black">▲</span>
+      <span className="absolute bottom-1.5 text-[9px] text-white/35 font-black">▼</span>
+      <span className="absolute left-1.5 text-[9px] text-white/35 font-black">◀</span>
+      <span className="absolute right-1.5 text-[9px] text-white/35 font-black">▶</span>
 
       {/* 조이스틱 중심 가이드 링 */}
       <div
         className="absolute rounded-full border border-dashed border-white/20 pointer-events-none"
-        style={{ width: '64px', height: '64px' }}
+        style={{ width: '52px', height: '52px' }}
       />
 
       {/* 내부 썸스틱 노브 (움직이는 손잡이) */}
       <div
         className="rounded-full shadow-lg pointer-events-none transition-transform"
         style={{
-          width: '52px',
-          height: '52px',
+          width: '42px',
+          height: '42px',
           background: isActive
             ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
-            : 'linear-gradient(135deg, rgba(245, 158, 11, 0.85) 0%, rgba(217, 119, 6, 0.85) 100%)',
-          border: '2.5px solid #fef3c7',
-          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.6)',
+            : 'linear-gradient(135deg, rgba(245, 158, 11, 0.8) 0%, rgba(217, 119, 6, 0.8) 100%)',
+          border: '2px solid #fef3c7',
+          boxShadow: '0 3px 10px rgba(0, 0, 0, 0.5)',
           transform: `translate(${knobPos.x}px, ${knobPos.y}px)`,
           transition: isActive ? 'none' : 'transform 0.15s ease-out',
         }}
       >
         {/* 노브 중앙 디테일 */}
         <div className="w-full h-full rounded-full flex items-center justify-center">
-          <div className="w-3.5 h-3.5 rounded-full bg-white/40" />
+          <div className="w-2.5 h-2.5 rounded-full bg-white/40" />
         </div>
       </div>
     </div>

@@ -33,6 +33,7 @@ export const Avatar: React.FC<AvatarProps> = ({
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const handRef = useRef<THREE.Group>(null);
+  const leftHandRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
   const bodyRef = useRef<THREE.Group>(null);
   const tieRef = useRef<THREE.Group>(null);
@@ -97,49 +98,115 @@ export const Avatar: React.FC<AvatarProps> = ({
     const baseHandY = isSitting ? 0.72 : 0.45;
     const baseHandZ = isSitting ? 0.22 : 0.16;
 
-    if (action === 'drinking' && handRef.current) {
-      // ★ 혼술 사색: 잔을 입술로 가져가서 홀짝홀짝 털어 넣는 생생한 모션
-      handRef.current.position.y = baseHandY + 0.26 + Math.sin(time * 6) * 0.02;
-      handRef.current.position.z = baseHandZ - 0.04;
-      handRef.current.rotation.x = -1.15 + Math.sin(time * 6) * 0.08;
-      handRef.current.rotation.z = -0.3;
+    if (action === 'pouring') {
+      // ★ 1. 술 따르기: 소주병을 테이블 위 잔 쪽으로 앞으로 뻗으며 55도 기울여 쪼르르 따르는 모션
+      if (handRef.current) {
+        handRef.current.position.set(0.12, baseHandY + 0.14, baseHandZ + 0.14);
+        // 병을 앞/옆으로 기울이고 따를 때 살짝 꿀렁거리는 디테일
+        handRef.current.rotation.set(-0.65, 0.2, -0.78 + Math.sin(time * 8) * 0.05);
+      }
+      if (leftHandRef.current) {
+        // 왼손: 정중하게 오른쪽 손목/팔꿈치 아래를 받쳐주는 한국 포차 예절 자세
+        leftHandRef.current.position.set(0.04, baseHandY + 0.08, baseHandZ + 0.06);
+        leftHandRef.current.rotation.set(-0.35, -0.4, 0.5);
+      }
+      if (headRef.current) {
+        headRef.current.rotation.x = 0.16; // 잔을 지긋이 바라보는 시선
+      }
+    } else if (action === 'eating') {
+      // ★ 2. 안주 먹기: 젓가락이 테이블 위 안주 접시로 내려갔다가 입으로 올라가는 실감 나는 포물선 궤적
+      const cycleTime = 2.4;
+      const progress = (time % cycleTime) / cycleTime; // 0 ~ 1
+
+      let handX = 0.16;
+      let handY = baseHandY;
+      let handZ = baseHandZ;
+      let rotX = 0;
+      let rotZ = 0;
+
+      if (progress < 0.42) {
+        // [구간 1: 테이블 안주로 가기] y 낮아지고 z 앞쪽으로 안주 집으러 감
+        const subP = Math.sin((progress / 0.42) * Math.PI);
+        handX = THREE.MathUtils.lerp(0.18, 0.1, subP);
+        handY = THREE.MathUtils.lerp(baseHandY, baseHandY - 0.06, subP);
+        handZ = THREE.MathUtils.lerp(baseHandZ, baseHandZ + 0.18, subP);
+        rotX = THREE.MathUtils.lerp(0, 0.52, subP); // 젓가락 끝이 아래 접시를 향함
+        rotZ = THREE.MathUtils.lerp(0, -0.25, subP);
+
+        if (headRef.current) {
+          headRef.current.rotation.x = THREE.MathUtils.lerp(0, 0.18, subP); // 안주 응시
+        }
+      } else if (progress < 0.75) {
+        // [구간 2: 입으로 쏙 가져오기] y 입술 높이로 올라오고 z 입 쪽으로 당김
+        const subP = Math.sin(((progress - 0.42) / 0.33) * Math.PI);
+        handX = THREE.MathUtils.lerp(0.18, 0.05, subP);
+        handY = THREE.MathUtils.lerp(baseHandY, baseHandY + 0.28, subP);
+        handZ = THREE.MathUtils.lerp(baseHandZ, baseHandZ - 0.04, subP);
+        rotX = THREE.MathUtils.lerp(0, -1.05, subP); // 젓가락 끝이 입술 쪽으로 쏙!
+        rotZ = THREE.MathUtils.lerp(0, 0.12, subP);
+
+        if (headRef.current) {
+          // 입으로 쏙 들어갈 때 고개를 살짝 맞이하듯 끄덕임
+          headRef.current.rotation.x = THREE.MathUtils.lerp(0.12, 0.02, (progress - 0.42) / 0.33);
+        }
+      } else {
+        // [구간 3: 오물오물 씹으며 행복해하기]
+        handX = 0.18;
+        handY = baseHandY;
+        handZ = baseHandZ;
+        rotX = 0;
+        rotZ = 0;
+
+        if (headRef.current) {
+          headRef.current.rotation.x = 0.08 + Math.sin(time * 12) * 0.06;
+        }
+      }
+
+      if (handRef.current) {
+        handRef.current.position.set(handX, handY, handZ);
+        handRef.current.rotation.set(rotX, 0, rotZ);
+      }
+      if (leftHandRef.current) {
+        leftHandRef.current.position.set(-0.18, baseHandY, baseHandZ);
+        leftHandRef.current.rotation.set(0, 0, 0);
+      }
+    } else if (action === 'drinking') {
+      // ★ 3. 혼술 사색: 잔을 입술로 가져가서 홀짝홀짝 털어 넣는 생생한 모션
+      if (handRef.current) {
+        handRef.current.position.set(0.08, baseHandY + 0.26 + Math.sin(time * 6) * 0.02, baseHandZ - 0.04);
+        handRef.current.rotation.set(-1.15 + Math.sin(time * 6) * 0.08, 0, -0.3);
+      }
       if (headRef.current) {
         // 소주가 목구멍으로 넘어갈 때 살짝 뒤로 젖혀지는 고개
         headRef.current.rotation.x = -0.16 + Math.sin(time * 6) * 0.04;
       }
-    } else if (action === 'eating' && handRef.current) {
-      // ★ 안주 먹기: 안주를 입에 쏙 넣고 오물오물 씹는 감성 모션
-      handRef.current.position.y = baseHandY + 0.18 + Math.sin(time * 8) * 0.05;
-      handRef.current.position.z = baseHandZ + 0.02;
-      handRef.current.rotation.x = -0.55 + Math.sin(time * 8) * 0.15;
-      handRef.current.rotation.z = 0;
-      if (headRef.current) {
-        // 맛있는 안주를 우물우물 씹으며 끄덕이는 고개
-        headRef.current.rotation.x = 0.08 + Math.sin(time * 8) * 0.06;
+      if (leftHandRef.current) {
+        leftHandRef.current.position.set(-0.18, baseHandY, baseHandZ);
+        leftHandRef.current.rotation.set(0, 0, 0);
       }
-    } else if (action === 'cheers' && handRef.current) {
-      // 술잔을 앞으로 들고 짠! 하는 제스처
-      handRef.current.position.y = baseHandY + 0.18 + Math.sin(time * 6) * 0.03;
-      handRef.current.position.z = baseHandZ + 0.12;
-      handRef.current.rotation.x = -Math.PI / 4 + Math.sin(time * 6) * 0.15;
-      handRef.current.rotation.z = 0;
+    } else if (action === 'cheers') {
+      // 4. 술잔을 앞으로 들고 짠! 하는 제스처
+      if (handRef.current) {
+        handRef.current.position.set(0.12, baseHandY + 0.18 + Math.sin(time * 6) * 0.03, baseHandZ + 0.12);
+        handRef.current.rotation.set(-Math.PI / 4 + Math.sin(time * 6) * 0.15, 0, 0);
+      }
       if (headRef.current) {
         headRef.current.rotation.x = Math.sin(time * 1.5) * 0.02;
       }
-    } else if (action === 'pouring' && handRef.current) {
-      // 소주 따르기 제스처
-      handRef.current.position.y = baseHandY + 0.1;
-      handRef.current.position.z = baseHandZ + 0.08;
-      handRef.current.rotation.z = -0.5 + Math.sin(time * 4) * 0.1;
-      handRef.current.rotation.x = -0.15;
-      if (headRef.current) {
-        headRef.current.rotation.x = 0.08;
+      if (leftHandRef.current) {
+        leftHandRef.current.position.set(-0.18, baseHandY, baseHandZ);
+        leftHandRef.current.rotation.set(0, 0, 0);
       }
-    } else if (handRef.current) {
-      handRef.current.position.y = baseHandY;
-      handRef.current.position.z = baseHandZ;
-      handRef.current.rotation.x = 0;
-      handRef.current.rotation.z = 0;
+    } else {
+      // 5. 평상시 자세
+      if (handRef.current) {
+        handRef.current.position.set(0.18, baseHandY, baseHandZ);
+        handRef.current.rotation.set(0, 0, 0);
+      }
+      if (leftHandRef.current) {
+        leftHandRef.current.position.set(-0.18, baseHandY, baseHandZ);
+        leftHandRef.current.rotation.set(0, 0, 0);
+      }
       if (headRef.current) {
         // 평상시 자연스러운 숨쉬기 및 사색 끄덕임
         headRef.current.rotation.x = Math.sin(time * 1.5) * 0.02;
@@ -314,8 +381,34 @@ export const Avatar: React.FC<AvatarProps> = ({
             <meshStandardMaterial color={color} roughness={0.5} />
           </mesh>
 
-          {/* 오른손 소주잔 (착석, cheers, drinking 시 들려있음) */}
-          {(action === 'cheers' || action === 'drinking' || (isSitting && action !== 'eating')) && (
+          {/* A. 술 따르기 (action === 'pouring'): 오른손에 쥐어진 초록 소주병 */}
+          {action === 'pouring' && (
+            <group position={[0, 0.08, 0.08]} rotation={[Math.PI / 2, 0, 0]}>
+              {/* 초록 소주병 본체 */}
+              <mesh position={[0, 0, 0]}>
+                <cylinderGeometry args={[0.03, 0.034, 0.15, 16]} />
+                <meshStandardMaterial color="#00a86b" roughness={0.15} metalness={0.1} transparent opacity={0.92} />
+              </mesh>
+              {/* 병목 */}
+              <mesh position={[0, 0.1, 0]}>
+                <cylinderGeometry args={[0.012, 0.026, 0.055, 16]} />
+                <meshStandardMaterial color="#00a86b" roughness={0.15} transparent opacity={0.92} />
+              </mesh>
+              {/* 병 주둥이 & 뚜껑 */}
+              <mesh position={[0, 0.132, 0]}>
+                <cylinderGeometry args={[0.013, 0.013, 0.01, 12]} />
+                <meshStandardMaterial color="#27ae60" metalness={0.7} />
+              </mesh>
+              {/* 하얀 사각 소주 라벨 */}
+              <mesh position={[0, 0, 0]}>
+                <cylinderGeometry args={[0.033, 0.033, 0.06, 16]} />
+                <meshStandardMaterial color="#ffffff" roughness={0.4} />
+              </mesh>
+            </group>
+          )}
+
+          {/* B. 술 마시기 & 착석 (drinking, cheers, 평상시): 오른손 소주잔 */}
+          {(action === 'cheers' || action === 'drinking' || (isSitting && action !== 'eating' && action !== 'pouring')) && (
             <group position={[0, 0.04, 0.05]}>
               <mesh>
                 <cylinderGeometry args={[0.024, 0.018, 0.05, 16]} />
@@ -330,23 +423,28 @@ export const Avatar: React.FC<AvatarProps> = ({
             </group>
           )}
 
-          {/* 오른손 젓가락 (안주 먹기 action === 'eating' 시 들려있음) */}
+          {/* C. 안주 먹기 (action === 'eating'): 오른손 젓가락 & 끝에 콕 집힌 맛있는 안주 조각 */}
           {action === 'eating' && (
             <group position={[0, 0.06, 0.06]} rotation={[-0.4, 0.2, 0]}>
               <mesh position={[-0.008, 0, 0]}>
-                <cylinderGeometry args={[0.003, 0.002, 0.16, 6]} />
+                <cylinderGeometry args={[0.003, 0.002, 0.18, 6]} />
                 <meshStandardMaterial color="#dfe6e9" metalness={0.7} roughness={0.3} />
               </mesh>
               <mesh position={[0.008, 0, 0]}>
-                <cylinderGeometry args={[0.003, 0.002, 0.16, 6]} />
+                <cylinderGeometry args={[0.003, 0.002, 0.18, 6]} />
                 <meshStandardMaterial color="#dfe6e9" metalness={0.7} roughness={0.3} />
+              </mesh>
+              {/* 젓가락 끝에 콕 집힌 빨간 포차 안주 조각 (접시에서 입으로 쏙 배달되는 실물) */}
+              <mesh position={[0, -0.09, 0]}>
+                <boxGeometry args={[0.018, 0.016, 0.018]} />
+                <meshStandardMaterial color="#c0392b" roughness={0.35} />
               </mesh>
             </group>
           )}
         </group>
 
-        {/* 6. 왼손 (잔 없음! 테이블을 편안히 짚고 있는 단정한 손) */}
-        <group position={[-0.18, isSitting ? 0.72 : 0.45, isSitting ? 0.22 : 0.1]}>
+        {/* 6. 왼손 (술 따를 때 정중하게 받치기 / 평상시 테이블 짚기) */}
+        <group ref={leftHandRef} position={[-0.18, isSitting ? 0.72 : 0.45, isSitting ? 0.22 : 0.1]}>
           {/* 손바닥/주먹 */}
           <mesh>
             <sphereGeometry args={[0.045, 16, 16]} />

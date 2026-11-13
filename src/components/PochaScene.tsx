@@ -5,6 +5,9 @@ import { OrbitControls } from '@react-three/drei';
 import { PochaTent } from './PochaTent';
 import { PochaTable, TableServing } from './PochaTable';
 import { StreetEnvironment } from './StreetEnvironment';
+import { NightCityBuildings } from './NightCityBuildings';
+import { ParkEnvironment } from './ParkEnvironment';
+import { RoadTraffic } from './RoadTraffic';
 import { RainEffect } from './RainEffect';
 import { Avatar } from './Avatar';
 import { OtherAvatars } from './OtherAvatars';
@@ -63,6 +66,12 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
   const controlsRef = useRef<any>(null);
   const { camera } = useThree();
 
+  // 주인장 배달(서빙) 시 카메라 자동 포커싱을 위한 사장님 위치 및 상태 Ref
+  const bossPosRef = useRef<[number, number, number]>([0, 0, -4.8]);
+  const [isBossServing, setIsBossServing] = useState<boolean>(false);
+  const wasBossServingRef = useRef<boolean>(false);
+  const resetToPlayerFrontRef = useRef<boolean>(false);
+
   const lastInteractRef = useRef<boolean>(false);
 
   // 날씨 및 분위기 테마별 조명/안개 감성 파라미터 구성
@@ -71,8 +80,8 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
       case 'snowy':
         return {
           fogColor: '#161f28',
-          fogNear: 13,
-          fogFar: 52,
+          fogNear: 22,
+          fogFar: 85,
           ambientColor: '#a4b0be',
           ambientIntensity: 1.05,
           dirLightColor: '#ffffff',
@@ -81,11 +90,24 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
           pochaLightColor: '#ff9f43',
           pochaLightIntensity: 2.4, // 눈 오는 겨울밤 더욱 따스한 포차 오렌지빛
         };
+      case 'autumn':
+        return {
+          fogColor: '#1a1412', // 늦가을 밤의 그윽한 흑갈색 안개
+          fogNear: 22,
+          fogFar: 90,
+          ambientColor: '#e58e26', // 가을 단풍과 낙엽을 비추는 따스한 앰버 톤
+          ambientIntensity: 1.0,
+          dirLightColor: '#f39c12',
+          dirLightIntensity: 1.3,
+          dirLightPos: [9, 13, 8] as [number, number, number],
+          pochaLightColor: '#e67e22',
+          pochaLightIntensity: 2.5,
+        };
       case 'sunset':
         return {
           fogColor: '#2d142c',
-          fogNear: 15,
-          fogFar: 62,
+          fogNear: 25,
+          fogFar: 95,
           ambientColor: '#e056fd',
           ambientIntensity: 0.95,
           dirLightColor: '#ff7675',
@@ -97,8 +119,8 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
       case 'starry':
         return {
           fogColor: '#070b14',
-          fogNear: 18,
-          fogFar: 75,
+          fogNear: 28,
+          fogFar: 110,
           ambientColor: '#54a0ff',
           ambientIntensity: 0.8,
           dirLightColor: '#c7ecee',
@@ -111,8 +133,8 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
       default:
         return {
           fogColor: '#0e1117',
-          fogNear: 15,
-          fogFar: 60,
+          fogNear: 24,
+          fogFar: 90,
           ambientColor: '#ff9f43', // 실제 포차 사진처럼 붉은 천막에서 난반사되는 따뜻하고 아늑한 오렌지빛 앰비언스
           ambientIntensity: 0.92,
           dirLightColor: '#ffeaa7',
@@ -438,54 +460,109 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
       onUpdatePlayer(playerPos.current, playerRot.current, 'idle', currentChair ? currentChair.id : null);
     }
 
-    // 3. 카메라 부드러운 팔로우 & 건배/따르기 시 시네마틱 줌업 (Zoom-up)
+    // 3. 카메라 부드러운 팔로우 & (주인장 배달 시 자동 포커싱 / 음주 제스처 시 시네마틱 줌업)
     if (controlsRef.current) {
       const prevTargetX = controlsRef.current.target.x;
       const prevTargetY = controlsRef.current.target.y;
       const prevTargetZ = controlsRef.current.target.z;
 
-      const isZoomAction = myAction === 'cheers' || myAction === 'pouring';
+      if (isBossServing) {
+        wasBossServingRef.current = true;
+        resetToPlayerFrontRef.current = false;
 
-      // 줌업 시에는 캐릭터의 얼굴과 술잔(상체)에 포커스를 맞춤
-      const targetX = playerPos.current[0];
-      const targetY = isZoomAction
-        ? (currentChair ? 0.88 : 0.82)
-        : (currentChair ? 0.75 : 0.7);
-      const targetZ = playerPos.current[2] - (isZoomAction ? 0.05 : 0.2);
+        // ★ 주인장 배달(서빙) 시: 한 단계 더 축소(Wide Zoom)하여 사장님과 포차 테이블 전체를 여유롭고 쾌적하게 조망
+        const targetX = bossPosRef.current[0];
+        const targetY = 1.05; // 사장님 상체 및 서빙 쟁반 시점
+        const targetZ = bossPosRef.current[2];
 
-      // 부드러운 타겟 보간
-      const newTargetX = THREE.MathUtils.lerp(prevTargetX, targetX, delta * 5);
-      const newTargetY = THREE.MathUtils.lerp(prevTargetY, targetY, delta * 5);
-      const newTargetZ = THREE.MathUtils.lerp(prevTargetZ, targetZ, delta * 5);
+        // 모바일 터치 조작 관성 충돌 방지를 위해 controls 내부 상태 리셋
+        if ((controlsRef.current as any).state !== -1) {
+          (controlsRef.current as any).state = -1;
+        }
 
-      const deltaX = newTargetX - prevTargetX;
-      const deltaY = newTargetY - prevTargetY;
-      const deltaZ = newTargetZ - prevTargetZ;
+        const newTargetX = THREE.MathUtils.lerp(prevTargetX, targetX, delta * 4.0);
+        const newTargetY = THREE.MathUtils.lerp(prevTargetY, targetY, delta * 4.0);
+        const newTargetZ = THREE.MathUtils.lerp(prevTargetZ, targetZ, delta * 4.0);
 
-      if (isZoomAction) {
-        // 캐릭터가 바라보고 있는 정면 방향 벡터 계산
-        const frontX = Math.sin(playerRot.current);
-        const frontZ = Math.cos(playerRot.current);
-        // 정면 클로즈업 거리: 줌단계를 2단계 완화하여 캐릭터 상체, 테이블, 술잔이 시네마틱하게 모두 담기는 미디엄 샷 거리 (기존 1.45m -> 2.35m)
-        const closeUpDistance = 2.35;
-
-        // 캐릭터의 정면 앞쪽에서 얼굴, 술잔, 테이블을 편안하게 조망하는 시네마틱 정면 카메라 좌표로 줌업
-        const targetCamPos = new THREE.Vector3(
-          newTargetX + frontX * closeUpDistance,
-          newTargetY + 0.32,
-          newTargetZ + frontZ * closeUpDistance
+        // 한 단계 더 축소된 편안한 시네마틱 줌인 거리 (정면 앞 3.4m, 높이 +1.25m, 측면 오프셋 1.75m)
+        const sideOffset = targetX >= 0 ? -1.75 : 1.75;
+        const bossCamPos = new THREE.Vector3(
+          newTargetX + sideOffset,
+          newTargetY + 1.25,
+          newTargetZ + 3.4
         );
+        camera.position.lerp(bossCamPos, delta * 3.6);
 
-        camera.position.lerp(targetCamPos, delta * 4);
+        controlsRef.current.target.set(newTargetX, newTargetY, newTargetZ);
+        controlsRef.current.update();
       } else {
-        // ★ 액션 종료 후 원래 거리로 되돌아가지 않고, 줌업된 카메라 위치/거리 및 사용자의 조작 상태를 그대로 유지
-        camera.position.x += deltaX;
-        camera.position.y += deltaY;
-        camera.position.z += deltaZ;
-      }
+        // ★ 서빙이 완료되어 사장님이 주방으로 복귀를 시작할 때, 카메라 앵글을 내 캐릭터 정면으로 자동 전환!
+        if (wasBossServingRef.current) {
+          wasBossServingRef.current = false;
+          resetToPlayerFrontRef.current = true;
+        }
 
-      controlsRef.current.target.set(newTargetX, newTargetY, newTargetZ);
-      controlsRef.current.update();
+        const isZoomAction = myAction === 'cheers' || myAction === 'drinking' || myAction === 'pouring';
+        const isResettingFront = resetToPlayerFrontRef.current;
+
+        // 줌업 또는 서빙 후 정면 복귀 시에는 캐릭터의 상체와 테이블에 포커스를 맞춤
+        const targetX = playerPos.current[0];
+        const targetY = isZoomAction || isResettingFront
+          ? (currentChair ? 0.88 : 0.82)
+          : (currentChair ? 0.75 : 0.7);
+        const targetZ = playerPos.current[2] - (isZoomAction || isResettingFront ? 0.05 : 0.2);
+
+        // 부드러운 타겟 보간
+        const newTargetX = THREE.MathUtils.lerp(prevTargetX, targetX, delta * 5);
+        const newTargetY = THREE.MathUtils.lerp(prevTargetY, targetY, delta * 5);
+        const newTargetZ = THREE.MathUtils.lerp(prevTargetZ, targetZ, delta * 5);
+
+        const deltaX = newTargetX - prevTargetX;
+        const deltaY = newTargetY - prevTargetY;
+        const deltaZ = newTargetZ - prevTargetZ;
+
+        if (isZoomAction) {
+          // 캐릭터가 바라보고 있는 정면 방향 벡터 계산
+          const frontX = Math.sin(playerRot.current);
+          const frontZ = Math.cos(playerRot.current);
+          const closeUpDistance = 2.35;
+
+          // 캐릭터의 정면 앞쪽에서 얼굴, 술잔, 테이블을 편안하게 조망하는 시네마틱 정면 카메라 좌표로 줌업
+          const targetCamPos = new THREE.Vector3(
+            newTargetX + frontX * closeUpDistance,
+            newTargetY + 0.32,
+            newTargetZ + frontZ * closeUpDistance
+          );
+
+          camera.position.lerp(targetCamPos, delta * 4);
+        } else if (isResettingFront) {
+          // ★ 서빙 완료 후: 캐릭터의 정면 앞쪽(얼굴과 테이블 위 새 안주를 바라보는 앵글)으로 부드럽게 복귀
+          const frontX = Math.sin(playerRot.current);
+          const frontZ = Math.cos(playerRot.current);
+          const returnDistance = currentChair ? 2.6 : 3.0;
+
+          const targetCamPos = new THREE.Vector3(
+            newTargetX + frontX * returnDistance,
+            newTargetY + (currentChair ? 0.65 : 0.85),
+            newTargetZ + frontZ * returnDistance
+          );
+
+          camera.position.lerp(targetCamPos, delta * 3.5);
+
+          // 카메라가 정면 위치에 거의 도달하면 정면 리셋 완료 처리
+          if (camera.position.distanceTo(targetCamPos) < 0.15) {
+            resetToPlayerFrontRef.current = false;
+          }
+        } else {
+          // 액션 및 서빙 종료 후 사용자의 자유로운 뷰포트 유지
+          camera.position.x += deltaX;
+          camera.position.y += deltaY;
+          camera.position.z += deltaZ;
+        }
+
+        controlsRef.current.target.set(newTargetX, newTargetY, newTargetZ);
+        controlsRef.current.update();
+      }
     }
   });
 
@@ -516,15 +593,18 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
         maxDistance={28}
       />
 
-      {/* 환경 & 배경 */}
+      {/* 환경 & 배경 (도로 건너편 도심 야경 빌딩가 & 도로 주행 차량 & 건너편 밤의 공원 숲) */}
       <StreetEnvironment weatherMood={weatherMood} />
+      <NightCityBuildings weatherMood={weatherMood} />
+      <ParkEnvironment weatherMood={weatherMood} />
+      <RoadTraffic />
       <RainEffect weatherMood={weatherMood} />
 
       {/* 포장마차 텐트 & 주방 */}
       <PochaTent weatherMood={weatherMood} />
 
       {/* 정감 있는 할머니 사장님 NPC (따뜻한 어묵 국물 국자로 젓기 & 위로의 말) */}
-      <GrandmaBoss />
+      <GrandmaBoss bossPosRef={bossPosRef} onServingChange={setIsBossServing} />
 
       {/* 10개의 포차 원형 테이블 (2열 5행 배치, 빨강 & 파랑 시그니처) */}
       {tables.map((table) => (

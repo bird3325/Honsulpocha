@@ -1,6 +1,6 @@
 export type CharacterType = 'salaryman' | 'cat' | 'bear' | 'rabbit' | 'dog';
 export type PlayerAction = 'idle' | 'walking' | 'sitting' | 'cheers' | 'pouring' | 'drinking' | 'eating';
-export type WeatherMood = 'rainy' | 'snowy' | 'sunset' | 'starry';
+export type WeatherMood = 'rainy' | 'snowy' | 'autumn' | 'sunset' | 'starry';
 
 export interface Player {
   id: string;

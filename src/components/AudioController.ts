@@ -1,3 +1,5 @@
+import { WeatherMood } from '../types';
+
 // Web Audio API 기반 순수 자립형 앰비언스 & 사운드 이펙트 엔진
 class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -6,7 +8,7 @@ class AudioEngine {
   private rainNode: AudioNode | null = null;
   private rainFilter: BiquadFilterNode | null = null;
   private rainGain: GainNode | null = null;
-  private currentMood: 'rainy' | 'snowy' | 'sunset' | 'starry' = 'rainy';
+  private currentMood: WeatherMood = 'rainy';
   private musicInterval: any = null;
   private ambientInterval: any = null;
   private noiseBuffer: AudioBuffer | null = null;
@@ -89,8 +91,8 @@ class AudioEngine {
     this.rainNode = gainNode;
   }
 
-  // 날씨 및 분위기 테마 변경 (비오는밤, 눈오는밤, 노을, 별밤)
-  public setWeatherMood(mood: 'rainy' | 'snowy' | 'sunset' | 'starry') {
+  // 날씨 및 분위기 테마 변경 (비오는밤, 눈오는밤, 낙엽 가을밤, 노을, 별밤)
+  public setWeatherMood(mood: 'rainy' | 'snowy' | 'autumn' | 'sunset' | 'starry') {
     this.currentMood = mood;
     if (!this.ctx || !this.rainFilter || !this.rainGain) return;
     const now = this.ctx.currentTime;
@@ -101,6 +103,10 @@ class AudioEngine {
       // 포근하고 고요하게 스치는 겨울밤 바람 소리
       this.rainFilter.frequency.setTargetAtTime(260, now, 0.5);
       this.rainGain.gain.setTargetAtTime(0.18, now, 0.5);
+    } else if (mood === 'autumn') {
+      // 늦가을 낙엽이 바스락거리는 서늘하고 감성적인 가을밤 바람 소리
+      this.rainFilter.frequency.setTargetAtTime(380, now, 0.5);
+      this.rainGain.gain.setTargetAtTime(0.14, now, 0.5);
     } else if (mood === 'sunset') {
       // 노을빛 저녁 잔잔한 감성 앰비언스
       this.rainFilter.frequency.setTargetAtTime(160, now, 0.5);

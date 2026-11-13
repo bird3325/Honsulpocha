@@ -140,7 +140,8 @@ export const App: React.FC = () => {
     }
 
     let cycleStep = 0;
-    // 5.5초 간격으로 홀짝 마시기 -> 냠냠 안주 먹기 -> 조용한 사색 순환 (의존성 리셋 방지)
+    // ★ 실제 포차 혼술의 여유로운 템포: 14초 간격의 5단계 순환 (술 한잔 음미 -> 깊은 사색 -> 안주 한점 -> 멍때리기 -> 감상)
+    // 술 한잔과 다음 술잔 사이에 1분 이상의 충분한 사색 여운을 두어 서두르지 않고 느긋하게 힐링
     const interval = setInterval(() => {
       const targetTableId = currentChairRef.current ? currentChairRef.current.tableId : 't1';
       const serving = tableServingsRef.current[targetTableId];
@@ -157,20 +158,27 @@ export const App: React.FC = () => {
         return;
       }
 
-      const step = cycleStep % 3;
+      const step = cycleStep % 5;
 
       if (step === 0) {
-        // 1. 혼자서 술잔 홀짝 마시기 (Drinking)
+        // 1. 혼자서 술잔 채우고 홀짝 마시기 (술병 기울여 따르기 -> 잔 들어 마시기)
         if (hasDrink) {
-          soundManager.playCheersSound();
-          setMyAction('drinking');
-          const res = handleConsumeDrink();
-          const thought = DRINK_THOUGHTS[Math.floor(Math.random() * DRINK_THOUGHTS.length)];
-          setAutoThought(`${thought} (${res.count}/8잔)`);
+          soundManager.playPouringSound();
+          setMyAction('pouring');
+          setAutoThought("쪼르르... 조용히 잔에 술을 채운다.");
+
           setTimeout(() => {
-            setMyAction(currentChairRef.current ? 'sitting' : 'idle');
-            setAutoThought(null);
-          }, 3500);
+            soundManager.playCheersSound();
+            setMyAction('drinking');
+            const res = handleConsumeDrink();
+            const thought = DRINK_THOUGHTS[Math.floor(Math.random() * DRINK_THOUGHTS.length)];
+            setAutoThought(`${thought} (${res.count}/8잔)`);
+
+            setTimeout(() => {
+              setMyAction(currentChairRef.current ? 'sitting' : 'idle');
+              setAutoThought(null);
+            }, 4500);
+          }, 2200);
         } else {
           // 술이 없으면 안주 먹기로 대체
           soundManager.playEatSound();
@@ -181,10 +189,16 @@ export const App: React.FC = () => {
           setTimeout(() => {
             setMyAction(currentChairRef.current ? 'sitting' : 'idle');
             setAutoThought(null);
-          }, 3500);
+          }, 5500);
         }
       } else if (step === 1) {
-        // 2. 따뜻한 안주 냠냠 먹기 (Eating)
+        // 2. 술 한잔 후 빗소리와 함께 첫 번째 여운 사색
+        const randomThought =
+          CONTEMPLATION_THOUGHTS[Math.floor(Math.random() * CONTEMPLATION_THOUGHTS.length)];
+        setAutoThought(randomThought);
+        setTimeout(() => setAutoThought(null), 6000);
+      } else if (step === 2) {
+        // 3. 따뜻한 안주 냠냠 먹기 (Eating)
         if (hasFood) {
           soundManager.playEatSound();
           setMyAction('eating');
@@ -194,7 +208,7 @@ export const App: React.FC = () => {
           setTimeout(() => {
             setMyAction(currentChairRef.current ? 'sitting' : 'idle');
             setAutoThought(null);
-          }, 3500);
+          }, 5500);
         } else {
           // 안주가 없으면 술 마시기로 대체
           soundManager.playCheersSound();
@@ -205,18 +219,30 @@ export const App: React.FC = () => {
           setTimeout(() => {
             setMyAction(currentChairRef.current ? 'sitting' : 'idle');
             setAutoThought(null);
-          }, 3500);
+          }, 5500);
         }
+      } else if (step === 3) {
+        // 4. 안주 먹은 후 밖의 골목과 비/눈을 조용히 바라보며 멍때리기
+        const thoughts = [
+          "세상이 아무리 바빠도, 여기선 시간이 멈춘 것만 같아.",
+          "따끈한 국물과 온기 덕분에 마음이 차분해진다...",
+          "조용한 혼술의 여운이 가슴 깊이 스며드네.",
+        ];
+        setAutoThought(thoughts[Math.floor(Math.random() * thoughts.length)]);
+        setTimeout(() => setAutoThought(null), 6000);
       } else {
-        // 3. 조용히 생각에 잠기며 사색하기 (Contemplation)
-        const randomThought =
-          CONTEMPLATION_THOUGHTS[Math.floor(Math.random() * CONTEMPLATION_THOUGHTS.length)];
-        setAutoThought(randomThought);
-        setTimeout(() => setAutoThought(null), 4500);
+        // 5. 다음 잔을 마시기 전 깊은 생각과 마음 비우기
+        const thoughts = [
+          "복잡한 생각은 잠시 비워두고 이 포근한 밤에 집중하자.",
+          "오늘 하루도 참 고생 많았다...",
+          "내일은 또 내일의 태양이 뜨겠지...",
+        ];
+        setAutoThought(thoughts[Math.floor(Math.random() * thoughts.length)]);
+        setTimeout(() => setAutoThought(null), 6000);
       }
 
       cycleStep++;
-    }, 5500);
+    }, 14000);
 
     return () => clearInterval(interval);
   }, [isAutoMode]);
@@ -247,23 +273,52 @@ export const App: React.FC = () => {
     };
 
     if (currentChair) {
-      // 착석 중인 경우: 테이블 상판이나 의자를 관통하지 않도록 중앙 통로 쪽 서빙 위치로 안전하게 지정
+      // 착석 중인 경우: 캐릭터가 앉아 있는 의자 방향을 감지하여 캐릭터가 없는 빈 방향으로 서빙!
       const tbl = TABLE_POS_MAP[currentChair.tableId] || [-3.8, 0, 3.4];
       const isLeftTable = tbl[0] < 0;
-      // 좌측 테이블은 x: -2.55, 우측 테이블은 x: 2.55에서 테이블을 바라보며 서빙
-      targetPos = [
-        isLeftTable ? -2.55 : 2.55,
-        0,
-        tbl[2],
-      ];
+      const chairPos = currentChair.position;
+
+      // 테이블 중심 대비 착석 의자의 상대적 위치
+      const chairRelX = chairPos[0] - tbl[0];
+      const chairRelZ = chairPos[2] - tbl[2];
+
+      // 기본적으로 중앙 복도 쪽 통로 서빙 좌표
+      let serveX = isLeftTable ? tbl[0] + 1.25 : tbl[0] - 1.25;
+      let serveZ = tbl[2];
+
+      // 캐릭터가 중앙 복도 쪽 의자(isLeftTable ? chairRelX > 0.4 : chairRelX < -0.4)에 앉아 있다면?
+      // 사장님이 캐릭터와 겹치지 않도록 테이블의 앞쪽(남쪽)이나 뒤쪽(북쪽) 빈 공간으로 서빙 위치를 지능적으로 우회
+      const isSittingOnCorridorSide = isLeftTable ? chairRelX > 0.4 : chairRelX < -0.4;
+      if (isSittingOnCorridorSide) {
+        // Z축 상단/하단 중 캐릭터가 없는 빈 방향 선택
+        if (chairRelZ >= 0) {
+          // 캐릭터가 남쪽/중앙에 있으면 북쪽(뒤편) 빈 공간으로 서빙
+          serveX = isLeftTable ? tbl[0] + 0.8 : tbl[0] - 0.8;
+          serveZ = tbl[2] - 1.05;
+        } else {
+          // 캐릭터가 북쪽에 있으면 남쪽(앞편) 빈 공간으로 서빙
+          serveX = isLeftTable ? tbl[0] + 0.8 : tbl[0] - 0.8;
+          serveZ = tbl[2] + 1.05;
+        }
+      } else {
+        // 캐릭터가 외벽/상/하단 의자에 앉아 있으면 중앙 복도 쪽 서빙 위치에서 안전하게 서빙
+        // Z축 의자에 앉아 있는 경우 미세 오프셋 회피
+        if (Math.abs(chairRelZ) > 0.4) {
+          serveZ = tbl[2] - Math.sign(chairRelZ) * 0.35;
+        }
+      }
+
+      targetPos = [serveX, 0, serveZ];
       tableName = `${currentChair.tableId.replace('t', '')}번 테이블`;
     } else {
-      // 서 있는 경우: 복도 통로 내에서 안전하게 서빙
+      // 서 있는 경우: 서 있는 플레이어의 실시간 위치와 겹치지 않도록 플레이어 정면 1.2m 앞 복도 지점에 서빙
       const px = myRealtimePos.current[0];
       const pz = myRealtimePos.current[2];
-      const safeX = Math.max(-2.2, Math.min(2.2, px));
-      const safeZ = Math.max(-3.3, Math.min(3.8, pz));
-      targetPos = [safeX, 0, safeZ];
+
+      // 플레이어가 서 있는 위치에서 1.2m 앞쪽으로 안전 거리 확보
+      const serveX = Math.max(-2.2, Math.min(2.2, px));
+      const serveZ = pz < -1.5 ? pz + 1.2 : pz - 1.2;
+      targetPos = [serveX, 0, Math.max(-3.3, Math.min(3.8, serveZ))];
     }
 
     // 사장님 NPC 서빙 이벤트 발송 (복수 메뉴 한 번에 전달)
@@ -288,58 +343,62 @@ export const App: React.FC = () => {
 
   // 1. 술 한잔 소비 핸들러 (마실 때마다 잔 수 감소 -> 다 마시면 테이블에서 비워짐)
   const handleConsumeDrink = (): { count: number; isDone: boolean } => {
-    const targetTableId = currentChair ? currentChair.tableId : 't1';
-    const current = tableServings[targetTableId];
-    const curCount = current?.drinkCount ?? 8;
-    const nextCount = curCount - 1;
-    const isDone = nextCount <= 0;
+    const targetTableId = currentChairRef.current ? currentChairRef.current.tableId : 't1';
+    let resultCount = 0;
+    let resultDone = false;
 
     setTableServings((prev) => {
       const cur = prev[targetTableId] || { hasDrink: false, hasFood: false };
+      const curCount = cur.drinkCount ?? 8;
+      resultCount = Math.max(0, curCount - 1);
+      resultDone = resultCount <= 0;
+
       const updated = {
         ...prev,
         [targetTableId]: {
           ...cur,
-          hasDrink: !isDone,
-          drinkCount: Math.max(0, nextCount),
+          hasDrink: !resultDone,
+          drinkCount: resultCount,
         },
       };
-      if (isDone && !cur.hasFood) {
+      if (resultDone && !cur.hasFood) {
         setHasOrderedAfterMenu(false);
         setIsAutoMode(false);
       }
       return updated;
     });
 
-    return { count: Math.max(0, nextCount), isDone };
+    return { count: resultCount, isDone: resultDone };
   };
 
   // 2. 안주 한 입 소비 핸들러 (먹을 때마다 입 수 감소 -> 다 먹으면 접시 깨끗이 비워짐)
   const handleConsumeFood = (): { count: number; isDone: boolean } => {
-    const targetTableId = currentChair ? currentChair.tableId : 't1';
-    const current = tableServings[targetTableId];
-    const curCount = current?.foodCount ?? 8;
-    const nextCount = curCount - 1;
-    const isDone = nextCount <= 0;
+    const targetTableId = currentChairRef.current ? currentChairRef.current.tableId : 't1';
+    let resultCount = 0;
+    let resultDone = false;
 
     setTableServings((prev) => {
       const cur = prev[targetTableId] || { hasDrink: false, hasFood: false };
+      const curCount = cur.foodCount ?? 8;
+      resultCount = Math.max(0, curCount - 1);
+      resultDone = resultCount <= 0;
+
       const updated = {
         ...prev,
         [targetTableId]: {
           ...cur,
-          hasFood: !isDone,
-          foodCount: Math.max(0, nextCount),
+          hasFood: !resultDone,
+          foodCount: resultCount,
         },
       };
-      if (isDone && !cur.hasDrink) {
+      if (resultDone && !cur.hasDrink) {
         setHasOrderedAfterMenu(false);
         setIsAutoMode(false);
       }
       return updated;
     });
 
-    return { count: Math.max(0, nextCount), isDone };
+    return { count: resultCount, isDone: resultDone };
   };
 
   // 메뉴 주문 완료 시에만 사색모드 토글 가능

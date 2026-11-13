@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Volume2, VolumeX, Users, Moon, ChevronDown, CloudRain, Snowflake, Sunset, Sparkles } from 'lucide-react';
+import { Volume2, VolumeX, Users, Moon, ChevronDown, CloudRain, Snowflake, Leaf, Sunset, Sparkles } from 'lucide-react';
 import { soundManager } from '../AudioController';
 import { WeatherMood } from '../../types';
 
@@ -51,6 +51,11 @@ export const Header: React.FC<HeaderProps> = ({
       id: 'snowy',
       label: '눈 오는 밤',
       icon: <Snowflake size={17} className="text-sky-200" />,
+    },
+    {
+      id: 'autumn',
+      label: '낙엽 지는 밤',
+      icon: <Leaf size={17} className="text-amber-400" />,
     },
     {
       id: 'sunset',

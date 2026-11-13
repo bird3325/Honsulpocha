@@ -27,10 +27,78 @@ function getTentRoofHeight(x: number, z: number): number {
 // 빗방울 바닥/지붕 물 튀김 (Splash Ripple) 개수
 const SPLASH_COUNT = 45;
 
+// 단풍잎 모양 절차적 알파 텍스처 (캔버스로 실제 단풍잎 엽맥과 5갈래 잎 모양 생성)
+function createMapleLeafTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.clearRect(0, 0, 128, 128);
+
+    // 단풍잎 실루엣 패스 그리기
+    ctx.save();
+    ctx.translate(64, 64);
+
+    // 단풍잎 본체 (그라데이션: 중심 붉은빛 -> 가장자리 주황/황금빛)
+    const grad = ctx.createRadialGradient(0, 0, 5, 0, 0, 55);
+    grad.addColorStop(0, '#e84118');
+    grad.addColorStop(0.5, '#ea2027');
+    grad.addColorStop(0.85, '#f39c12');
+    grad.addColorStop(1, '#d35400');
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(0, 50); // 잎자루 시작점
+
+    // 5갈래 단풍잎의 뾰족한 로브(Lobe) 포인트들
+    const lobes = [
+      { x: -38, y: 18 },
+      { x: -48, y: -8 },
+      { x: -44, y: -30 },
+      { x: -18, y: -24 },
+      { x: 0, y: -54 }, // 중앙 상단 뾰족 잎
+      { x: 18, y: -24 },
+      { x: 44, y: -30 },
+      { x: 48, y: -8 },
+      { x: 38, y: 18 },
+    ];
+
+    lobes.forEach((pt) => {
+      ctx.lineTo(pt.x, pt.y);
+    });
+    ctx.closePath();
+    ctx.fill();
+
+    // 엽맥 (Leaf Veins) 디테일
+    ctx.strokeStyle = '#c0392b';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 48);
+    ctx.lineTo(0, -45);
+    ctx.moveTo(0, 10);
+    ctx.lineTo(-35, -15);
+    ctx.moveTo(0, 10);
+    ctx.lineTo(35, -15);
+    ctx.moveTo(0, 25);
+    ctx.lineTo(-30, 8);
+    ctx.moveTo(0, 25);
+    ctx.lineTo(30, 8);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
+
 export const WeatherEffect: React.FC<WeatherEffectProps> = ({ weatherMood = 'rainy' }) => {
   const count = 1100;
   const pointsRef = useRef<THREE.Points>(null);
   const materialRef = useRef<THREE.PointsMaterial>(null);
+
+  // 단풍잎 텍스처
+  const mapleTexture = useMemo(() => createMapleLeafTexture(), []);
 
   // 물 튀김 링 메시 참조들
   const splashRipplesRef = useRef<THREE.InstancedMesh>(null);
@@ -81,24 +149,35 @@ export const WeatherEffect: React.FC<WeatherEffectProps> = ({ weatherMood = 'rai
   useEffect(() => {
     if (!materialRef.current) return;
     if (weatherMood === 'rainy') {
+      materialRef.current.map = null;
       materialRef.current.color.set('#bdc3c7');
       materialRef.current.size = 0.055;
       materialRef.current.opacity = 0.55;
     } else if (weatherMood === 'snowy') {
+      materialRef.current.map = null;
       materialRef.current.color.set('#ffffff');
       materialRef.current.size = 0.15; // 포근한 함박눈송이
       materialRef.current.opacity = 0.92;
+    } else if (weatherMood === 'autumn') {
+      // 실제 단풍잎 텍스처 및 입체감 적용
+      materialRef.current.map = mapleTexture;
+      materialRef.current.color.set('#ffffff'); // 텍스처 본연의 그러데이션 색상 반영
+      materialRef.current.size = 0.35; // 종이 조각이 아닌 탐스러운 가을 단풍잎 크기
+      materialRef.current.opacity = 0.96;
     } else if (weatherMood === 'sunset') {
+      materialRef.current.map = null;
       materialRef.current.color.set('#fbc531');
       materialRef.current.size = 0.08;
       materialRef.current.opacity = 0.45;
     } else {
       // starry
+      materialRef.current.map = null;
       materialRef.current.color.set('#dff9fb');
       materialRef.current.size = 0.07;
       materialRef.current.opacity = 0.55;
     }
-  }, [weatherMood]);
+    materialRef.current.needsUpdate = true;
+  }, [weatherMood, mapleTexture]);
 
   // 임시 Three.js 객체
   const dummy = useMemo(() => new THREE.Object3D(), []);
@@ -126,6 +205,7 @@ export const WeatherEffect: React.FC<WeatherEffectProps> = ({ weatherMood = 'rai
 
     const isRain = weatherMood === 'rainy';
     const isSnow = weatherMood === 'snowy';
+    const isAutumn = weatherMood === 'autumn';
 
     if (isRain) {
       // 비: 세차게 수직 낙하 + 지붕/바닥 충돌 감지 & 천막 내부 완벽 차단
@@ -186,6 +266,38 @@ export const WeatherEffect: React.FC<WeatherEffectProps> = ({ weatherMood = 'rai
           }
         } else {
           // 길거리 바닥에 도달하면 재순환
+          if (y <= 0.05) {
+            array[i * 3 + 1] = 12 + Math.random() * 4;
+            array[i * 3 + 0] = (Math.random() - 0.5) * 36;
+            array[i * 3 + 2] = (Math.random() - 0.5) * 36;
+          }
+        }
+      }
+    } else if (isAutumn) {
+      // 가을 낙엽: 바람을 타고 공중에서 춤추듯 회전하며(swaying and tumbling) 떨어짐
+      for (let i = 0; i < count; i++) {
+        const leafSpeed = 0.035 + speeds[i] * 0.22;
+        array[i * 3 + 1] -= leafSpeed;
+
+        // 가을 바람에 좌우로 크게 흔들리며 떨어지는 낙엽 궤적
+        array[i * 3 + 0] += Math.sin(time * 1.8 + seeds[i]) * 0.025 + 0.008;
+        array[i * 3 + 2] += Math.cos(time * 1.4 + seeds[i] * 2) * 0.018;
+
+        const x = array[i * 3 + 0];
+        const y = array[i * 3 + 1];
+        const z = array[i * 3 + 2];
+
+        const roofH = getTentRoofHeight(x, z);
+
+        if (roofH > 0) {
+          // 낙엽이 텐트 지붕에 닿으면 튀거나 안착
+          if (y <= roofH + 0.06) {
+            array[i * 3 + 1] = 12 + Math.random() * 4;
+            array[i * 3 + 0] = (Math.random() - 0.5) * 36;
+            array[i * 3 + 2] = (Math.random() - 0.5) * 36;
+          }
+        } else {
+          // 길거리 아스팔트/인도에 도달하면 재순환
           if (y <= 0.05) {
             array[i * 3 + 1] = 12 + Math.random() * 4;
             array[i * 3 + 0] = (Math.random() - 0.5) * 36;

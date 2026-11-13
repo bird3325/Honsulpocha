@@ -6,9 +6,17 @@ import { ServingOrder } from '../types';
 import { soundManager } from './AudioController';
 import { RealisticPochaFood } from './RealisticPochaFood';
 
-type BossState = 'cooking' | 'walk_to_table' | 'serving' | 'walk_to_kitchen';
+type BossState = 'cooking' | 'preparing' | 'walk_to_table' | 'serving' | 'walk_to_kitchen';
 
-export const GrandmaBoss: React.FC = () => {
+export interface GrandmaBossProps {
+  onServingChange?: (isServing: boolean) => void;
+  bossPosRef?: React.MutableRefObject<[number, number, number]>;
+}
+
+export const GrandmaBoss: React.FC<GrandmaBossProps> = ({
+  onServingChange,
+  bossPosRef,
+}) => {
   const bossGroupRef = useRef<THREE.Group>(null);
   const ladleRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
@@ -62,7 +70,12 @@ export const GrandmaBoss: React.FC = () => {
         order.targetPos,
       ];
       waypointIdxRef.current = 0;
-      setBossState('walk_to_table');
+
+      // ★ 카메라가 먼저 사장님(조리대)을 포커싱하며 비추고, 정확히 1초(1000ms) 후에 사장님이 쟁반을 들고 이동 시작
+      setBossState('preparing');
+      setTimeout(() => {
+        setBossState('walk_to_table');
+      }, 1000);
     };
 
     window.addEventListener('pocha_serve_order', handleOrder);
@@ -79,16 +92,32 @@ export const GrandmaBoss: React.FC = () => {
     return () => clearInterval(timer);
   }, [bossState]);
 
+  // 주인장 배달(서빙) 상태 부모(PochaScene) 알림: 카메라 자동 포커싱 연동 (서빙 준비 즉시 카메라 이동)
+  useEffect(() => {
+    const isDelivering =
+      bossState === 'preparing' || bossState === 'walk_to_table' || bossState === 'serving';
+    if (onServingChange) {
+      onServingChange(isDelivering);
+    }
+  }, [bossState, onServingChange]);
+
   // 프레임 루프 (서빙 보행 AI & 애니메이션)
   useFrame((state, delta) => {
     const time = state.clock.elapsedTime;
 
-    if (bossState === 'cooking') {
-      // 주방에서 어묵 국물 젓기
+    // 실시간 위치를 부모 카메라 타겟 참조용 Ref에 공유
+    if (bossPosRef) {
+      bossPosRef.current[0] = currentPos.current[0];
+      bossPosRef.current[1] = currentPos.current[1];
+      bossPosRef.current[2] = currentPos.current[2];
+    }
+
+    if (bossState === 'cooking' || bossState === 'preparing') {
+      // 주방 조리대 대기 (preparing 시 쟁반 들고 손님 정면 응시하며 1초 대기)
       currentPos.current = [HOME_POS[0], 0, HOME_POS[2]];
       currentRot.current = 0; // 정면 응시
 
-      if (ladleRef.current) {
+      if (bossState === 'cooking' && ladleRef.current) {
         ladleRef.current.position.x = -1.1 + Math.cos(time * 2.2) * 0.12;
         ladleRef.current.position.z = Math.sin(time * 2.2) * 0.12;
         ladleRef.current.rotation.z = Math.sin(time * 2.2) * 0.25;
@@ -147,9 +176,19 @@ export const GrandmaBoss: React.FC = () => {
       // 테이블 앞에서 테이블을 다정하게 바라보며 메뉴를 내려놓고 인사
       serveTimer.current += delta;
 
-      // 테이블 방향(좌측 테이블이면 -90도, 우측 테이블이면 +90도)으로 부드럽게 시선 회전
+      // 테이블 방향을 다정하게 바라보며 메뉴를 내려놓고 인사
       if (currentOrder?.targetPos) {
-        const faceAngle = currentOrder.targetPos[0] < 0 ? -Math.PI / 2 : Math.PI / 2;
+        // 테이블 중심 좌표 찾기 (테이블 번호 기반 또는 서빙 위치 기준)
+        const tableCenterPos: [number, number] = currentOrder.tableId && currentOrder.tableId.startsWith('t')
+          ? [
+              currentOrder.targetPos[0] < 0 ? -3.8 : 3.8,
+              currentOrder.targetPos[2],
+            ]
+          : [currentOrder.targetPos[0], currentOrder.targetPos[2]];
+
+        const dx = tableCenterPos[0] - currentPos.current[0];
+        const dz = tableCenterPos[1] - currentPos.current[2];
+        const faceAngle = Math.atan2(dx, dz);
         currentRot.current = THREE.MathUtils.lerp(currentRot.current, faceAngle, delta * 6);
       }
 
@@ -203,20 +242,81 @@ export const GrandmaBoss: React.FC = () => {
       bossGroupRef.current.position.set(currentPos.current[0], 0, currentPos.current[2]);
       bossGroupRef.current.rotation.y = currentRot.current;
 
-      // 걸을 때 다정한 할머니 걸음걸이 뒤뚱거림 (sway & bounce)
+      // 1. 걸을 때 다정한 할머니 걸음걸이 뒤뚱거림 (sway & bounce)
       if (bossState === 'walk_to_table' || bossState === 'walk_to_kitchen') {
         bossGroupRef.current.position.y = Math.abs(Math.sin(time * 7)) * 0.05;
         bossGroupRef.current.rotation.z = Math.sin(time * 7) * 0.04;
+        bossGroupRef.current.rotation.x = 0;
+      } else if (bossState === 'serving') {
+        // 2. ★ 서빙 시: 단순히 멈춰 서 있지 않고 테이블 위에 쟁반을 정성껏 내리고(bow & present),
+        // 손님에게 다정하게 고개 숙여 인사하는 풍성한 리얼 서빙 모션 수행!
+        const st = serveTimer.current;
+        if (st < 1.4) {
+          // [단계 1] 상체를 앞으로 부드럽게 숙이며(Pitch Forward) 쟁반을 테이블을 향해 깊숙이 내밈
+          const bowProgress = Math.sin((st / 1.4) * (Math.PI / 2));
+          bossGroupRef.current.rotation.x = bowProgress * 0.22; // 상체 정중하게 숙임
+          bossGroupRef.current.position.y = -bowProgress * 0.04; // 무릎 살짝 굽힘
+        } else if (st < 2.5) {
+          // [단계 2] 숙인 채 테이블을 흐뭇하게 바라보며 인사 유지 (공손한 자세)
+          bossGroupRef.current.rotation.x = 0.22 + Math.sin(time * 4) * 0.02;
+          bossGroupRef.current.position.y = -0.04;
+        } else {
+          // [단계 3] 상체를 다시 반듯하게 세우며 인자하게 일어섬
+          const riseProgress = Math.min(1.0, (st - 2.5) / 0.9);
+          bossGroupRef.current.rotation.x = THREE.MathUtils.lerp(0.22, 0, riseProgress);
+          bossGroupRef.current.position.y = THREE.MathUtils.lerp(-0.04, 0, riseProgress);
+        }
+        bossGroupRef.current.rotation.z = 0;
       } else {
         bossGroupRef.current.position.y = 0;
         bossGroupRef.current.rotation.z = 0;
+        bossGroupRef.current.rotation.x = 0;
       }
     }
 
-    // 고개 끄덕임
+    // 쟁반(Tray) 실감 나는 서빙 모션: 테이블 상판 높이로 내렸다가 올려놓기
+    if (trayRef.current) {
+      if (bossState === 'serving') {
+        const st = serveTimer.current;
+        if (st < 1.4) {
+          // 쟁반을 테이블 앞쪽으로 내밀며(Z +0.36 -> +0.55) 높이를 테이블 상판(0.85m) 높이에 맞춰 낮춤
+          const p = Math.sin((st / 1.4) * (Math.PI / 2));
+          trayRef.current.position.set(0, 0.72 - p * 0.16, 0.36 + p * 0.18);
+          trayRef.current.rotation.x = -p * 0.12; // 쟁반 수평 보정
+        } else if (st < 2.4) {
+          // 메뉴를 테이블에 정갈하게 내려놓은 위치 유지
+          trayRef.current.position.set(0, 0.56, 0.54);
+          trayRef.current.rotation.x = -0.12;
+        } else {
+          // 빈 쟁반을 가슴 쪽으로 단정하게 다시 거둬들임
+          const rp = Math.min(1.0, (st - 2.4) / 1.0);
+          trayRef.current.position.set(
+            0,
+            THREE.MathUtils.lerp(0.56, 0.72, rp),
+            THREE.MathUtils.lerp(0.54, 0.36, rp)
+          );
+          trayRef.current.rotation.x = THREE.MathUtils.lerp(-0.12, 0, rp);
+        }
+      } else if (bossState === 'walk_to_table' || bossState === 'walk_to_kitchen') {
+        // 걸을 때 쟁반이 보행 리듬에 맞춰 자연스럽게 바운스
+        trayRef.current.position.set(0, 0.72 + Math.sin(time * 7) * 0.02, 0.36);
+        trayRef.current.rotation.x = 0;
+      } else {
+        trayRef.current.position.set(0, 0.72, 0.36);
+        trayRef.current.rotation.x = 0;
+      }
+    }
+
+    // 고개 끄덕임 및 서빙 시 다정한 인사 끄덕임
     if (headRef.current) {
-      headRef.current.rotation.x = Math.sin(time * 1.5) * 0.05 + 0.08;
-      headRef.current.rotation.y = Math.sin(time * 0.8) * 0.1;
+      if (bossState === 'serving') {
+        // 서빙 시 정성스러운 고개 끄덕임 인사 2회
+        headRef.current.rotation.x = 0.12 + Math.abs(Math.sin(serveTimer.current * 3.5)) * 0.22;
+        headRef.current.rotation.y = Math.sin(serveTimer.current * 1.5) * 0.08;
+      } else {
+        headRef.current.rotation.x = Math.sin(time * 1.5) * 0.05 + 0.08;
+        headRef.current.rotation.y = Math.sin(time * 0.8) * 0.1;
+      }
     }
   });
 
@@ -332,33 +432,117 @@ export const GrandmaBoss: React.FC = () => {
         </>
       )}
 
-      {/* 4-B. 서빙 중: 양손으로 은색 알루미늄 서빙 쟁반을 소중히 받쳐 들고 걷기 */}
+      {/* 4-B. 서빙 중: 양손으로 레트로 은색 알루미늄 서빙 쟁반을 소중히 받쳐 들고 걷기 */}
       {isServingMode && (
         <group ref={trayRef} position={[0, 0.72, 0.36]}>
-          {/* 양손 손목 */}
-          <mesh position={[-0.22, 0.02, 0]}>
-            <sphereGeometry args={[0.05, 12, 12]} />
-            <meshStandardMaterial color="#ffeaa7" />
-          </mesh>
-          <mesh position={[0.22, 0.02, 0]}>
-            <sphereGeometry args={[0.05, 12, 12]} />
-            <meshStandardMaterial color="#ffeaa7" />
+          {/* 양손 손목 및 손가락 (쟁반 양쪽 테두리를 안정감 있게 파지) */}
+          <group position={[-0.26, 0.02, 0]}>
+            <mesh>
+              <sphereGeometry args={[0.045, 12, 12]} />
+              <meshStandardMaterial color="#ffeaa7" />
+            </mesh>
+            <mesh position={[0.02, 0.015, 0.01]} rotation={[0, 0, -0.4]}>
+              <boxGeometry args={[0.03, 0.02, 0.04]} />
+              <meshStandardMaterial color="#ffeaa7" />
+            </mesh>
+          </group>
+
+          <group position={[0.26, 0.02, 0]}>
+            <mesh>
+              <sphereGeometry args={[0.045, 12, 12]} />
+              <meshStandardMaterial color="#ffeaa7" />
+            </mesh>
+            <mesh position={[-0.02, 0.015, 0.01]} rotation={[0, 0, 0.4]}>
+              <boxGeometry args={[0.03, 0.02, 0.04]} />
+              <meshStandardMaterial color="#ffeaa7" />
+            </mesh>
+          </group>
+
+          {/* ★ 실제 한국 포차의 시그니처: 레트로 은색 원형 알루미늄 양은 쟁반 */}
+          {/* 쟁반 본체 */}
+          <mesh position={[0, -0.012, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[0.28, 0.25, 0.024, 32]} />
+            <meshStandardMaterial color="#dcdde1" metalness={0.85} roughness={0.22} />
           </mesh>
 
-          {/* 은색 포차 레트로 원형 서빙 쟁반 */}
-          <mesh position={[0, -0.02, 0]} castShadow>
-            <cylinderGeometry args={[0.26, 0.24, 0.02, 24]} />
-            <meshStandardMaterial color="#bdc3c7" metalness={0.75} roughness={0.3} />
+          {/* 쟁반 둥근 테두리 림 (Rolled Rim) */}
+          <mesh position={[0, 0.002, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.278, 0.01, 10, 32]} />
+            <meshStandardMaterial color="#f5f6fa" metalness={0.9} roughness={0.2} />
           </mesh>
 
-          {/* 쟁반 위 주문 메뉴와 100% 동일한 실물 3D 음식 렌더링 */}
-          {currentOrder && (
-            <RealisticPochaFood
-              itemId={currentOrder.item.id}
-              scale={0.92}
-              position={[0, 0, 0]}
-            />
-          )}
+          {/* 쟁반 바닥 정겨운 레트로 빨간 장미꽃 원형 문양 디테일 */}
+          <group position={[0, 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <mesh position={[0, 0, 0.001]}>
+              <ringGeometry args={[0.035, 0.085, 24]} />
+              <meshBasicMaterial color="#e84118" transparent opacity={0.65} side={THREE.DoubleSide} />
+            </mesh>
+            <mesh position={[0, 0, 0.002]}>
+              <circleGeometry args={[0.028, 16]} />
+              <meshBasicMaterial color="#ff6b6b" transparent opacity={0.7} side={THREE.DoubleSide} />
+            </mesh>
+          </group>
+
+          {/* ★ 실제 주문한 모든 메뉴(주류 + 안주) 100% 실물 3D 렌더링 & 김(Steam) 효과 */}
+          {(() => {
+            const orderItems =
+              currentOrder?.items && currentOrder.items.length > 0
+                ? currentOrder.items
+                : currentOrder?.item
+                ? [currentOrder.item]
+                : [];
+
+            if (orderItems.length === 0) return null;
+
+            // 1개 단일 주문: 쟁반 정중앙에 기품 있게 배치
+            if (orderItems.length === 1) {
+              return (
+                <RealisticPochaFood
+                  itemId={orderItems[0].id}
+                  scale={0.82}
+                  position={[0, 0.005, 0]}
+                />
+              );
+            }
+
+            // 2개 주문 (주류 1개 + 안주 1개 등): 쟁반 좌/우에 나란히 실감 나게 배치
+            if (orderItems.length === 2) {
+              return (
+                <>
+                  <RealisticPochaFood
+                    itemId={orderItems[0].id}
+                    scale={0.68}
+                    position={[-0.09, 0.005, -0.04]}
+                  />
+                  <RealisticPochaFood
+                    itemId={orderItems[1].id}
+                    scale={0.68}
+                    position={[0.08, 0.005, 0.04]}
+                  />
+                </>
+              );
+            }
+
+            // 3개 이상 복수 주문: 쟁반 위에 정갈하게 균형 배치
+            return (
+              <>
+                {orderItems.map((it, idx) => {
+                  const angle = (idx / orderItems.length) * Math.PI * 2;
+                  const rad = 0.11;
+                  const px = Math.cos(angle) * rad;
+                  const pz = Math.sin(angle) * rad;
+                  return (
+                    <RealisticPochaFood
+                      key={`${it.id}_${idx}`}
+                      itemId={it.id}
+                      scale={orderItems.length >= 4 ? 0.5 : 0.58}
+                      position={[px, 0.005, pz]}
+                    />
+                  );
+                })}
+              </>
+            );
+          })()}
         </group>
       )}
     </group>
