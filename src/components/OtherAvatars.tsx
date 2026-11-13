@@ -18,6 +18,7 @@ export const OtherAvatars: React.FC<OtherAvatarsProps> = ({ players }) => {
           position={player.position}
           rotation={player.rotation}
           action={player.action}
+          isSeated={!!player.seatedChairId}
           isMe={false}
         />
       ))}

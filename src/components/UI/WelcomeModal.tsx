@@ -8,8 +8,13 @@ interface WelcomeModalProps {
 }
 
 export const WelcomeModal: React.FC<WelcomeModalProps> = ({ nickname, onEnter }) => {
-  const handleStart = () => {
+  const handleStart = async () => {
     soundManager.init();
+    try {
+      if (screen.orientation && (screen.orientation as any).lock) {
+        await (screen.orientation as any).lock('landscape').catch(() => {});
+      }
+    } catch (e) {}
     onEnter();
   };
 

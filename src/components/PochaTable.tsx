@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
 import * as THREE from 'three';
 import { ChairSlot } from '../types';
+import { RealisticPochaFood } from './RealisticPochaFood';
+
+export interface TableServing {
+  hasDrink: boolean;
+  drinkId?: string;
+  hasFood: boolean;
+  foodId?: string;
+}
 
 interface PochaTableProps {
   id: string;
@@ -9,6 +17,8 @@ interface PochaTableProps {
   chairSlots: ChairSlot[];
   onSitChair: (chair: ChairSlot) => void;
   mySeatedChairId: string | null;
+  tableColor?: string;
+  servedOrder?: TableServing;
 }
 
 export const PochaTable: React.FC<PochaTableProps> = ({
@@ -18,157 +28,212 @@ export const PochaTable: React.FC<PochaTableProps> = ({
   chairSlots,
   onSitChair,
   mySeatedChairId,
+  tableColor = '#d63031',
+  servedOrder,
 }) => {
   const [hoveredChair, setHoveredChair] = useState<string | null>(null);
 
+  const hasDrink = !!servedOrder?.hasDrink;
+  const hasFood = !!servedOrder?.hasFood;
+
+  // 실제 사진 속 생생한 포차 빨강/파랑 색상
+  const isRedTable = tableColor === '#d63031';
+  const primaryColor = isRedTable ? '#e84118' : '#0984e3';
+
   return (
     <group position={position} rotation={[0, rotation, 0]}>
-      {/* 1. 포차 원형/사각 플라스틱 테이블 (빨간색/파란색 테이블) */}
-      {/* 상판 */}
-      <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.75, 0.75, 0.05, 32]} />
-        <meshStandardMaterial color="#d63031" roughness={0.3} metalness={0.1} />
+      {/* 1. 실제 한국 포차 X자 접이식 원형 플라스틱 테이블 */}
+      {/* 상판 (반지름 0.58m, 살짝 둥근 테두리 몰딩) */}
+      <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.58, 0.58, 0.035, 32]} />
+        <meshStandardMaterial color={primaryColor} roughness={0.35} metalness={0.08} />
       </mesh>
-      {/* 테이블 다리 */}
-      <mesh position={[0, 0.36, 0]} castShadow>
-        <cylinderGeometry args={[0.04, 0.04, 0.72, 12]} />
-        <meshStandardMaterial color="#2d3436" metalness={0.7} />
-      </mesh>
-      {/* 테이블 받침대 */}
-      <mesh position={[0, 0.02, 0]}>
-        <cylinderGeometry args={[0.4, 0.4, 0.04, 16]} />
-        <meshStandardMaterial color="#2d3436" metalness={0.7} />
+      {/* 상판 밑면 테두리 보강 리브 */}
+      <mesh position={[0, 0.72, 0]}>
+        <cylinderGeometry args={[0.55, 0.55, 0.015, 24]} />
+        <meshStandardMaterial color="#2d3436" roughness={0.6} />
       </mesh>
 
-      {/* 2. 테이블 위 소품 (초록색 소주병, 맑은 소주잔, 안주 접시) */}
-      <group position={[0, 0.78, 0]}>
-        {/* 초록색 소주병 */}
-        <group position={[-0.15, 0, 0.1]}>
-          <mesh position={[0, 0.12, 0]} castShadow>
-            <cylinderGeometry args={[0.04, 0.045, 0.22, 16]} />
-            <meshStandardMaterial
-              color="#00b894"
-              roughness={0.15}
-              metalness={0.1}
-              transparent
-              opacity={0.88}
-            />
-          </mesh>
-          {/* 소주병 목 */}
-          <mesh position={[0, 0.25, 0]}>
-            <cylinderGeometry args={[0.018, 0.03, 0.07, 16]} />
-            <meshStandardMaterial color="#00b894" roughness={0.15} transparent opacity={0.88} />
-          </mesh>
-          {/* 소주 라벨 */}
-          <mesh position={[0, 0.12, 0]}>
-            <cylinderGeometry args={[0.046, 0.046, 0.08, 16]} />
-            <meshStandardMaterial color="#ffffff" roughness={0.5} />
-          </mesh>
-        </group>
+      {/* ★ 사진 속 실제 포차의 "흰색 X자 교차 접이식 철제 파이프 다리 (White X-Folding Legs)" */}
+      <group position={[0, 0.36, 0]}>
+        {/* X자 대각 파이프 1 (앞/뒤 대칭 2조) */}
+        {[-0.24, 0.24].map((zOffset, zi) => (
+          <group key={zi} position={[0, 0, zOffset]}>
+            {/* 왼쪽에서 오른쪽 아래로 내려가는 파이프 */}
+            <mesh position={[0, 0, 0]} rotation={[0, 0, 0.44]} castShadow>
+              <cylinderGeometry args={[0.016, 0.016, 0.82, 10]} />
+              <meshStandardMaterial color="#ecf0f1" metalness={0.5} roughness={0.35} />
+            </mesh>
+            {/* 오른쪽에서 왼쪽 아래로 내려가는 파이프 */}
+            <mesh position={[0, 0, 0]} rotation={[0, 0, -0.44]} castShadow>
+              <cylinderGeometry args={[0.016, 0.016, 0.82, 10]} />
+              <meshStandardMaterial color="#ecf0f1" metalness={0.5} roughness={0.35} />
+            </mesh>
+            {/* 중앙 교차 힌지 볼트 */}
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.022, 0.022, 0.05, 8]} />
+              <meshStandardMaterial color="#7f8c8d" metalness={0.8} />
+            </mesh>
+          </group>
+        ))}
 
-        {/* 맑은 소주잔 */}
-        <mesh position={[0.15, 0.035, -0.05]}>
-          <cylinderGeometry args={[0.03, 0.022, 0.06, 16]} />
-          <meshStandardMaterial
-            color="#ecf0f1"
-            roughness={0.1}
-            metalness={0.2}
-            transparent
-            opacity={0.65}
-          />
+        {/* 상단 수평 연결 바 (상판 아래 지지) */}
+        <mesh position={[0, 0.35, 0]}>
+          <boxGeometry args={[0.03, 0.03, 0.52]} />
+          <meshStandardMaterial color="#bdc3c7" metalness={0.6} />
         </mesh>
-
-        {/* 안주 접시 (오뎅/골뱅이무침/두부김치) */}
-        <group position={[0.08, 0.01, 0.18]}>
-          <mesh receiveShadow>
-            <cylinderGeometry args={[0.16, 0.14, 0.02, 24]} />
-            <meshStandardMaterial color="#f5f6fa" roughness={0.3} />
+        {/* 하단 수평 지지 바 2개 (바닥 지지 파이프) */}
+        <mesh position={[-0.32, -0.34, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.018, 0.018, 0.56, 10]} />
+          <meshStandardMaterial color="#bdc3c7" metalness={0.6} />
+        </mesh>
+        <mesh position={[0.32, -0.34, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.018, 0.018, 0.56, 10]} />
+          <meshStandardMaterial color="#bdc3c7" metalness={0.6} />
+        </mesh>
+        {/* 바닥 검은 고무 패킹 캡 4개 */}
+        {[
+          [-0.32, 0.28],
+          [-0.32, -0.28],
+          [0.32, 0.28],
+          [0.32, -0.28],
+        ].map(([px, pz], pzi) => (
+          <mesh key={pzi} position={[px, -0.345, pz]}>
+            <sphereGeometry args={[0.022, 8, 8]} />
+            <meshStandardMaterial color="#2d3436" roughness={0.8} />
           </mesh>
-          {/* 안주 내용물 */}
-          <mesh position={[0, 0.02, 0]} scale={[1, 0.35, 1]}>
-            <sphereGeometry args={[0.11, 8, 8]} />
-            <meshStandardMaterial color="#e17055" roughness={0.6} />
-          </mesh>
-        </group>
-
-        {/* 테이블 위 은은한 촛불/미니 조명 */}
-        <pointLight color="#ffeaa7" intensity={0.5} distance={1.8} position={[0, 0.15, 0]} />
+        ))}
       </group>
 
-      {/* 3. 테이블 주변 플라스틱 의자들 (클릭하여 앉기 상호작용) */}
-      {chairSlots.map((chair) => {
-        const isHovered = hoveredChair === chair.id;
-        const isMeSitting = mySeatedChairId === chair.id;
+      {/* 사진 속 테이블 위 상시 기본 소품: 스테인리스 앞접시/물컵 */}
+      <group position={[0.04, 0.76, -0.06]}>
+        <mesh castShadow receiveShadow>
+          <cylinderGeometry args={[0.065, 0.045, 0.035, 16]} />
+          <meshStandardMaterial color="#dfe6e9" metalness={0.85} roughness={0.2} />
+        </mesh>
+      </group>
 
-        // 테이블 기준 로컬 좌표 계산
-        const chairLocalPos: [number, number, number] = [
+      {/* 2. 테이블 위 주문 서빙 소품 (실제 주문한 메뉴와 100% 동일한 3D 음식 모델) */}
+      <group position={[0, 0.76, 0]}>
+        {/* A. 주류 서빙 완료 시 나타나는 술병과 잔 */}
+        {hasDrink && servedOrder?.drinkId && (
+          <RealisticPochaFood
+            itemId={servedOrder.drinkId}
+            position={[-0.15, 0, 0.08]}
+            scale={1.0}
+          />
+        )}
+
+        {/* B. 안주 서빙 완료 시 나타나는 정갈한 음식 요리 접시/냄비/뚝배기 */}
+        {hasFood && servedOrder?.foodId && (
+          <RealisticPochaFood
+            itemId={servedOrder.foodId}
+            position={[0.08, 0, -0.04]}
+            scale={1.0}
+          />
+        )}
+
+        {/* 테이블 위 은은한 조명 */}
+        {(hasDrink || hasFood) && (
+          <pointLight color="#ffeaa7" intensity={0.65} distance={2.0} position={[0, 0.25, 0]} />
+        )}
+      </group>
+
+      {/* 3. ★ 사진 속 실제 한국 포장마차 플라스틱 스툴 (손잡이 구멍 & 사출 다리 & 보강 링) */}
+      {chairSlots.map((chair, cIdx) => {
+        const isMySeat = mySeatedChairId === chair.id;
+        const isOccupied = chair.isOccupied;
+        const isHovered = hoveredChair === chair.id;
+
+        // 부모 테이블 group(position) 기준 의자의 로컬 상대 좌표
+        const localPos: [number, number, number] = [
           chair.position[0] - position[0],
-          chair.position[1] - position[1],
+          0,
           chair.position[2] - position[2],
         ];
+
+        // 사진처럼 빨간 스툴과 파란 스툴이 자연스럽게 교차 믹스됨
+        const stoolBaseColor =
+          isMySeat
+            ? '#00cec9'
+            : isHovered
+            ? '#ffeaa7'
+            : cIdx % 2 === 0
+            ? '#e84118' // 빨간 포차 스툴
+            : '#0984e3'; // 파란 포차 스툴
 
         return (
           <group
             key={chair.id}
-            position={chairLocalPos}
+            position={localPos}
             rotation={[0, chair.rotation, 0]}
             onPointerOver={(e) => {
               e.stopPropagation();
               setHoveredChair(chair.id);
-              document.body.style.cursor = 'pointer';
             }}
-            onPointerOut={() => {
-              setHoveredChair(null);
-              document.body.style.cursor = 'default';
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSitChair(chair);
-            }}
+            onPointerOut={() => setHoveredChair(null)}
           >
-            {/* 원형 플라스틱 의자 방석 */}
-            <mesh position={[0, 0.45, 0]} castShadow>
-              <cylinderGeometry args={[0.22, 0.22, 0.04, 20]} />
+            {/* 의자 클릭 히트박스 */}
+            <mesh
+              position={[0, 0.44, 0]}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSitChair(chair);
+              }}
+              visible={false}
+            >
+              <cylinderGeometry args={[0.35, 0.35, 0.9, 16]} />
+              <meshBasicMaterial transparent opacity={0} />
+            </mesh>
+
+            {/* A. 플라스틱 본체 상단 림 (빨강 or 파랑 사출) */}
+            <mesh position={[0, 0.44, 0]} castShadow>
+              <cylinderGeometry args={[0.18, 0.19, 0.04, 20]} />
               <meshStandardMaterial
-                color={
-                  isMeSitting
-                    ? '#00cec9'
-                    : isHovered
-                    ? '#fdcb6e'
-                    : chair.isOccupied
-                    ? '#636e72'
-                    : '#0984e3'
-                }
-                roughness={0.4}
+                color={stoolBaseColor}
+                roughness={0.45}
+                emissive={isHovered && !isOccupied ? '#f39c12' : '#000000'}
+                emissiveIntensity={0.25}
               />
             </mesh>
 
-            {/* 의자 가운데 구멍 (한국 포차 의자 디테일) */}
-            <mesh position={[0, 0.455, 0]}>
-              <cylinderGeometry args={[0.04, 0.04, 0.05, 12]} />
-              <meshStandardMaterial color="#2d3436" />
-            </mesh>
+            {/* B. 사진 속 원형 시트 (검정/어두운 톤 + 중앙 손잡이 구멍 디테일) */}
+            <group position={[0, 0.462, 0]}>
+              {/* 바깥 둥근 쿠션/시트 도넛 */}
+              <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+                <ringGeometry args={[0.035, 0.17, 24]} />
+                <meshStandardMaterial color="#2d3436" roughness={0.7} side={THREE.DoubleSide} />
+              </mesh>
+              {/* 중앙 손잡이 타원 구멍 테두리 */}
+              <mesh rotation={[Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.015, 0.035, 16]} />
+                <meshStandardMaterial color="#1e272e" roughness={0.9} side={THREE.DoubleSide} />
+              </mesh>
+            </group>
 
-            {/* 의자 다리 4개 */}
+            {/* C. 살짝 바깥으로 벌어진 4개의 사출 다리 */}
             {[
-              [0.12, 0.12],
-              [-0.12, 0.12],
-              [0.12, -0.12],
               [-0.12, -0.12],
-            ].map(([dx, dz], i) => (
-              <mesh key={i} position={[dx, 0.22, dz]} castShadow>
-                <cylinderGeometry args={[0.016, 0.016, 0.44, 8]} />
-                <meshStandardMaterial color="#2d3436" metalness={0.6} />
+              [0.12, -0.12],
+              [-0.12, 0.12],
+              [0.12, 0.12],
+            ].map(([dx, dz], di) => (
+              <mesh
+                key={di}
+                position={[dx * 1.15, 0.21, dz * 1.15]}
+                rotation={[0.08 * (dz > 0 ? 1 : -1), 0, 0.08 * (dx > 0 ? 1 : -1)]}
+                castShadow
+              >
+                <boxGeometry args={[0.032, 0.43, 0.032]} />
+                <meshStandardMaterial color={stoolBaseColor} roughness={0.5} />
               </mesh>
             ))}
 
-            {/* 호버 시 "앉기" 유도 링 효과 */}
-            {isHovered && !chair.isOccupied && (
-              <mesh position={[0, 0.52, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <ringGeometry args={[0.24, 0.28, 24]} />
-                <meshBasicMaterial color="#ffeaa7" side={THREE.DoubleSide} />
-              </mesh>
-            )}
+            {/* D. 사진 속 스툴 특유의 중간 가로 보강 리브 링 (발받침 링) */}
+            <mesh position={[0, 0.14, 0]}>
+              <cylinderGeometry args={[0.155, 0.165, 0.025, 16, 1, true]} />
+              <meshStandardMaterial color={stoolBaseColor} roughness={0.5} side={THREE.DoubleSide} />
+            </mesh>
           </group>
         );
       })}

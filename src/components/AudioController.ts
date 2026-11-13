@@ -4,6 +4,9 @@ class AudioEngine {
   private isMuted: boolean = false;
   private isInitialized: boolean = false;
   private rainNode: AudioNode | null = null;
+  private rainFilter: BiquadFilterNode | null = null;
+  private rainGain: GainNode | null = null;
+  private currentMood: 'rainy' | 'snowy' | 'sunset' | 'starry' = 'rainy';
   private musicInterval: any = null;
 
   public init() {
@@ -49,9 +52,11 @@ class AudioEngine {
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
     filter.frequency.setValueAtTime(800, this.ctx.currentTime);
+    this.rainFilter = filter;
 
     const gainNode = this.ctx.createGain();
     gainNode.gain.setValueAtTime(0.3, this.ctx.currentTime);
+    this.rainGain = gainNode;
 
     whiteNoise.connect(filter);
     filter.connect(gainNode);
@@ -59,6 +64,29 @@ class AudioEngine {
 
     whiteNoise.start(0);
     this.rainNode = gainNode;
+  }
+
+  // 날씨 및 분위기 테마 변경 (비오는밤, 눈오는밤, 노을, 별밤)
+  public setWeatherMood(mood: 'rainy' | 'snowy' | 'sunset' | 'starry') {
+    this.currentMood = mood;
+    if (!this.ctx || !this.rainFilter || !this.rainGain) return;
+    const now = this.ctx.currentTime;
+    if (mood === 'rainy') {
+      this.rainFilter.frequency.setTargetAtTime(800, now, 0.5);
+      this.rainGain.gain.setTargetAtTime(0.3, now, 0.5);
+    } else if (mood === 'snowy') {
+      // 포근하고 고요하게 스치는 겨울밤 바람 소리
+      this.rainFilter.frequency.setTargetAtTime(260, now, 0.5);
+      this.rainGain.gain.setTargetAtTime(0.18, now, 0.5);
+    } else if (mood === 'sunset') {
+      // 노을빛 저녁 잔잔한 감성 앰비언스
+      this.rainFilter.frequency.setTargetAtTime(160, now, 0.5);
+      this.rainGain.gain.setTargetAtTime(0.06, now, 0.5);
+    } else {
+      // 맑고 시원한 별 헤는 밤 고요한 앰비언스
+      this.rainFilter.frequency.setTargetAtTime(140, now, 0.5);
+      this.rainGain.gain.setTargetAtTime(0.04, now, 0.5);
+    }
   }
 
   // 2. 포차 감성 로파이(Lo-Fi) 잔잔한 코드 멜로디
@@ -167,6 +195,52 @@ class AudioEngine {
       osc.start(dropTime);
       osc.stop(dropTime + 0.09);
     }
+  }
+
+  // 5. 술 주문 포차 벨 & 병 오픈 효과음 ("띵~동~ 뻥!")
+  public playOrderSound() {
+    if (!this.ctx || this.isMuted) return;
+    this.ensureRunning();
+
+    const now = this.ctx.currentTime;
+
+    // 1단계: 띵~ (1046Hz, C6)
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(1046, now);
+    gain1.gain.setValueAtTime(0.12, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    osc1.connect(gain1);
+    gain1.connect(this.ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.6);
+
+    // 2단계: 동~ (784Hz, G5)
+    const osc2 = this.ctx.createOscillator();
+    const gain2 = this.ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(784, now + 0.22);
+    gain2.gain.setValueAtTime(0.12, now + 0.22);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+    osc2.connect(gain2);
+    gain2.connect(this.ctx.destination);
+    osc2.start(now + 0.22);
+    osc2.stop(now + 0.9);
+
+    // 3단계: 소주병 뚜껑 시원하게 따는 "뻥!" 소리 (now + 0.5초)
+    const popTime = now + 0.45;
+    const popOsc = this.ctx.createOscillator();
+    const popGain = this.ctx.createGain();
+    popOsc.type = 'sine';
+    popOsc.frequency.setValueAtTime(220, popTime);
+    popOsc.frequency.exponentialRampToValueAtTime(60, popTime + 0.08);
+    popGain.gain.setValueAtTime(0.2, popTime);
+    popGain.gain.exponentialRampToValueAtTime(0.001, popTime + 0.09);
+    popOsc.connect(popGain);
+    popGain.connect(this.ctx.destination);
+    popOsc.start(popTime);
+    popOsc.stop(popTime + 0.1);
   }
 
   private ensureRunning() {

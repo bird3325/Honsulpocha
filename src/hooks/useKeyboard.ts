@@ -7,6 +7,7 @@ export const useKeyboard = () => {
     left: false,
     right: false,
     cheers: false,
+    interact: false,
   });
 
   useEffect(() => {
@@ -35,6 +36,11 @@ export const useKeyboard = () => {
         case 'KeyC':
           setKeys((k) => ({ ...k, cheers: true }));
           break;
+        case 'KeyE':
+        case 'KeyF':
+        case 'Enter':
+          setKeys((k) => ({ ...k, interact: true }));
+          break;
       }
     };
 
@@ -59,6 +65,11 @@ export const useKeyboard = () => {
         case 'Space':
         case 'KeyC':
           setKeys((k) => ({ ...k, cheers: false }));
+          break;
+        case 'KeyE':
+        case 'KeyF':
+        case 'Enter':
+          setKeys((k) => ({ ...k, interact: false }));
           break;
       }
     };

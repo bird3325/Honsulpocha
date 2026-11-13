@@ -84,7 +84,7 @@ export const useMultiplayer = ({ onMyPlayerCreated }: UseMultiplayerProps) => {
         nickname: DUMMY_NAMES[Math.floor(Math.random() * DUMMY_NAMES.length)],
         color: '#ecf0f1',
         characterType: 'salaryman' as any,
-        position: [0, 0, 0.7],
+        position: [0, 0, 4.6],
         rotation: Math.PI,
         action: 'idle',
         seatedChairId: null,
@@ -92,30 +92,63 @@ export const useMultiplayer = ({ onMyPlayerCreated }: UseMultiplayerProps) => {
       setMyPlayer(initial);
       if (onMyPlayerCreated) onMyPlayerCreated(initial);
 
-      // 외롭지 않게 조용히 포차 자리에 앉아 혼술하는 다른 직장인 2명
+      // 외롭지 않게 조용히 포차 자리에 앉아 혼술하는 다른 직장인들 (10개 테이블 합석 인터랙션용)
       const npc1: Player = {
         id: 'npc_1',
         nickname: '야근 뒤 박과장',
         color: '#dff9fb',
         characterType: 'salaryman' as any,
-        position: [-1.65, 0, 0],
+        position: [-2.95, 0, -1.7],
         rotation: -Math.PI / 2,
         action: 'sitting',
-        seatedChairId: 't1_c4',
+        seatedChairId: 't7_c4',
       };
       const npc2: Player = {
         id: 'npc_2',
         nickname: '오늘도 버텼다',
         color: '#dcdde1',
         characterType: 'salaryman' as any,
-        position: [1.65, 0, 0],
+        position: [2.95, 0, -1.7],
         rotation: Math.PI / 2,
         action: 'sitting',
-        seatedChairId: 't2_c2',
+        seatedChairId: 't8_c2',
+      };
+      const npc3: Player = {
+        id: 'npc_3',
+        nickname: '외로운 김대리',
+        color: '#f5cd79',
+        characterType: 'salaryman' as any,
+        position: [4.65, 0, 1.7],
+        rotation: -Math.PI / 2,
+        action: 'sitting',
+        seatedChairId: 't4_c4',
+      };
+      const npc4: Player = {
+        id: 'npc_4',
+        nickname: '칼퇴 꿈나무',
+        color: '#e8bcb9',
+        characterType: 'salaryman' as any,
+        position: [2.95, 0, 0.0],
+        rotation: Math.PI / 2,
+        action: 'sitting',
+        seatedChairId: 't6_c2',
+      };
+      const npc5: Player = {
+        id: 'npc_5',
+        nickname: '새벽 감성 송주임',
+        color: '#b8e994',
+        characterType: 'salaryman' as any,
+        position: [-4.65, 0, -3.2],
+        rotation: Math.PI / 2,
+        action: 'sitting',
+        seatedChairId: 't9_c2',
       };
       const npcs = new Map<string, Player>();
       npcs.set(npc1.id, npc1);
       npcs.set(npc2.id, npc2);
+      npcs.set(npc3.id, npc3);
+      npcs.set(npc4.id, npc4);
+      npcs.set(npc5.id, npc5);
       setOtherPlayers(npcs);
     }
 
