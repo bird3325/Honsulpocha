@@ -24,8 +24,8 @@ function getTentRoofHeight(x: number, z: number): number {
   return 0; // 텐트 바깥
 }
 
-// 빗방울 바닥/지붕 물 튀김 (Splash Ripple) 개수
-const SPLASH_COUNT = 45;
+// 빗방울 바닥/지붕 물 튀김 (Splash Ripple) 개수 (대폭 확장하여 사방에서 빗방울이 튀도록 함)
+const SPLASH_COUNT = 90;
 
 // 단풍잎 모양 절차적 알파 텍스처 (캔버스로 실제 단풍잎 엽맥과 5갈래 잎 모양 생성)
 function createMapleLeafTexture(): THREE.CanvasTexture {
@@ -231,10 +231,10 @@ export const WeatherEffect: React.FC<WeatherEffectProps> = ({ weatherMood = 'rai
             array[i * 3 + 2] = (Math.random() - 0.5) * 36;
           }
         } else {
-          // [길거리 영역] 바닥에 닿으면 물 튀김 발생
-          if (y <= 0.05) {
-            if (Math.random() < 0.3) {
-              triggerSplash(x, 0.06, z);
+          // [길거리 영역] 보도블럭/아스팔트 바닥(높이 0.08m)에 닿으면 빗방울 물 튀김 발생
+          if (y <= 0.09) {
+            if (Math.random() < 0.45) {
+              triggerSplash(x, 0.095, z);
             }
             array[i * 3 + 1] = 12 + Math.random() * 4;
             array[i * 3 + 0] = (Math.random() - 0.5) * 36;

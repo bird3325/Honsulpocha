@@ -180,17 +180,20 @@ export const StreetEnvironment: React.FC<StreetEnvironmentProps> = ({ weatherMoo
 
   const puddleRippleRef = useRef<THREE.Group>(null);
 
-  // 비 올 때 물웅덩이 표면의 잔잔한 파문(리플) 애니메이션
+  // 비 올 때 물웅덩이 표면의 잔잔한 파문(리플) 동심원 애니메이션
   useFrame((state) => {
     if (puddleRippleRef.current && weatherMood === 'rainy') {
       const time = state.clock.elapsedTime;
       puddleRippleRef.current.children.forEach((child, i) => {
         const ring = child as THREE.Mesh;
-        const scaleVal = 1.0 + ((time * 1.5 + i * 0.7) % 2.0) * 0.45;
+        // 서로 다른 오프셋과 주기로 물방울이 톡톡 떨어져 퍼지는 리플
+        const cycle = ((time * 1.8 + i * 0.43) % 1.5) / 1.5; // 0 ~ 1
+        const scaleVal = 0.3 + cycle * 1.4;
         ring.scale.set(scaleVal, scaleVal, 1);
         const mat = ring.material as THREE.MeshBasicMaterial;
         if (mat) {
-          mat.opacity = Math.max(0, 0.65 - ((time * 1.5 + i * 0.7) % 2.0) * 0.32);
+          // 점점 옅어지며 사라지는 동심원 파문
+          mat.opacity = Math.sin(cycle * Math.PI) * 0.7;
         }
       });
     }
@@ -261,63 +264,125 @@ export const StreetEnvironment: React.FC<StreetEnvironmentProps> = ({ weatherMoo
 
       {/* 4. ★ 비 올 때 길거리에 생기는 실제 물웅덩이 고임 (Street Puddles & Concentric Ripples) */}
       {isRain && (
-        <group position={[0, 0.015, 0]}>
-          {/* A. 포차 정문 앞 아스팔트 대형 물웅덩이 */}
-          <mesh position={[0, 0, 7.2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-            <circleGeometry args={[2.4, 32]} />
+        <group position={[0, 0.08, 0]}>
+          {/* A. 포차 정문 입구 앞 메인 대형 물웅덩이 (가로등 불빛과 네온 반사) */}
+          <mesh position={[0, 0.002, 6.8]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <circleGeometry args={[2.5, 32]} />
             <meshStandardMaterial
-              color="#080b10"
-              roughness={0.03}
-              metalness={0.92}
+              color="#070a10"
+              roughness={0.02}
+              metalness={0.96}
+              transparent
+              opacity={0.92}
+            />
+          </mesh>
+          {/* A-2. 포차 입구 우측 보도블럭 물웅덩이 */}
+          <mesh position={[2.6, 0.002, 5.8]} rotation={[-Math.PI / 2, 0, 0.4]} receiveShadow>
+            <circleGeometry args={[1.5, 24]} />
+            <meshStandardMaterial
+              color="#070a10"
+              roughness={0.02}
+              metalness={0.94}
               transparent
               opacity={0.88}
             />
           </mesh>
-          {/* B. 좌측 골목 보행로 옆 물웅덩이 */}
-          <mesh position={[-7.8, 0, 2.5]} rotation={[-Math.PI / 2, 0, 0.3]} receiveShadow>
-            <circleGeometry args={[1.6, 24]} />
+          {/* A-3. 포차 입구 좌측 보도블럭 물웅덩이 */}
+          <mesh position={[-2.4, 0.002, 5.9]} rotation={[-Math.PI / 2, 0, -0.3]} receiveShadow>
+            <circleGeometry args={[1.4, 24]} />
             <meshStandardMaterial
-              color="#080b10"
-              roughness={0.03}
-              metalness={0.92}
+              color="#070a10"
+              roughness={0.02}
+              metalness={0.94}
               transparent
-              opacity={0.85}
-            />
-          </mesh>
-          {/* C. 우측 골목 보행로 옆 물웅덩이 */}
-          <mesh position={[7.8, 0, -2.8]} rotation={[-Math.PI / 2, 0, -0.4]} receiveShadow>
-            <circleGeometry args={[1.8, 24]} />
-            <meshStandardMaterial
-              color="#080b10"
-              roughness={0.03}
-              metalness={0.92}
-              transparent
-              opacity={0.85}
-            />
-          </mesh>
-          {/* D. 후면 골목 작은 물웅덩이 */}
-          <mesh position={[-2.5, 0, -7.2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-            <circleGeometry args={[1.4, 20]} />
-            <meshStandardMaterial
-              color="#080b10"
-              roughness={0.03}
-              metalness={0.92}
-              transparent
-              opacity={0.85}
+              opacity={0.88}
             />
           </mesh>
 
-          {/* 물웅덩이 위에 빗방울이 떨어지며 잔잔히 퍼지는 동심원 파문(Ripples) */}
+          {/* B. 좌측 차도/인도 경계부 물웅덩이 */}
+          <mesh position={[-7.8, 0.002, 2.2]} rotation={[-Math.PI / 2, 0, 0.3]} receiveShadow>
+            <circleGeometry args={[1.9, 28]} />
+            <meshStandardMaterial
+              color="#070a10"
+              roughness={0.02}
+              metalness={0.95}
+              transparent
+              opacity={0.9}
+            />
+          </mesh>
+          <mesh position={[-8.5, 0.002, -2.5]} rotation={[-Math.PI / 2, 0, -0.2]} receiveShadow>
+            <circleGeometry args={[1.6, 24]} />
+            <meshStandardMaterial
+              color="#070a10"
+              roughness={0.02}
+              metalness={0.95}
+              transparent
+              opacity={0.9}
+            />
+          </mesh>
+
+          {/* C. 우측 공원 산책로 길목 물웅덩이 */}
+          <mesh position={[7.8, 0.002, -2.5]} rotation={[-Math.PI / 2, 0, -0.4]} receiveShadow>
+            <circleGeometry args={[2.0, 28]} />
+            <meshStandardMaterial
+              color="#070a10"
+              roughness={0.02}
+              metalness={0.95}
+              transparent
+              opacity={0.9}
+            />
+          </mesh>
+          <mesh position={[8.2, 0.002, 2.8]} rotation={[-Math.PI / 2, 0, 0.2]} receiveShadow>
+            <circleGeometry args={[1.7, 24]} />
+            <meshStandardMaterial
+              color="#070a10"
+              roughness={0.02}
+              metalness={0.95}
+              transparent
+              opacity={0.9}
+            />
+          </mesh>
+
+          {/* D. 후면 주방 창문 너머 골목길 물웅덩이 */}
+          <mesh position={[-2.2, 0.002, -6.8]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <circleGeometry args={[1.6, 24]} />
+            <meshStandardMaterial
+              color="#070a10"
+              roughness={0.02}
+              metalness={0.94}
+              transparent
+              opacity={0.88}
+            />
+          </mesh>
+          <mesh position={[2.4, 0.002, -7.0]} rotation={[-Math.PI / 2, 0, 0.3]} receiveShadow>
+            <circleGeometry args={[1.5, 24]} />
+            <meshStandardMaterial
+              color="#070a10"
+              roughness={0.02}
+              metalness={0.94}
+              transparent
+              opacity={0.88}
+            />
+          </mesh>
+
+          {/* 물웅덩이 표면에 빗방울이 톡톡 떨어지며 퍼져나가는 동심원 파문(Concentric Ripples) */}
           <group ref={puddleRippleRef}>
             {[
-              [0, 7.2],
-              [0.6, 7.6],
-              [-7.8, 2.5],
-              [7.8, -2.8],
+              [0, 6.8],
+              [-0.8, 7.2],
+              [0.9, 6.4],
+              [2.6, 5.8],
+              [-2.4, 5.9],
+              [-7.8, 2.2],
+              [-8.5, -2.5],
+              [7.8, -2.5],
+              [8.2, 2.8],
+              [-2.2, -6.8],
+              [2.4, -7.0],
             ].map(([rx, rz], ri) => (
-              <mesh key={ri} position={[rx, 0.02, rz]} rotation={[-Math.PI / 2, 0, 0]}>
-                <ringGeometry args={[0.3, 0.36, 24]} />
-                <meshBasicMaterial color="#dfe6e9" transparent opacity={0.5} depthWrite={false} />
+              <mesh key={ri} position={[rx, 0.005, rz]} rotation={[-Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.08, 0.14, 24]} />
+                <meshBasicMaterial color="#ecf0f1" transparent opacity={0.65} depthWrite={false} />
               </mesh>
             ))}
           </group>
