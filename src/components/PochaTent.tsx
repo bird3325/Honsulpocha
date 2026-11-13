@@ -430,13 +430,12 @@ export const PochaTent: React.FC<PochaTentProps> = ({ weatherMood = 'rainy' }) =
                 roughness={0.1}
               />
             </mesh>
-            {/* 따뜻한 포차 램프 광원 */}
+            {/* 따뜻한 포차 램프 광원 (포차 내부 아늑한 조명) */}
             <pointLight
               color="#ff9f43"
               intensity={2.8}
               distance={11}
               decay={2}
-              castShadow
             />
           </group>
         ))}

@@ -20,7 +20,7 @@ const createInitialPlayer = (): Player => ({
   seatedChairId: null,
 });
 
-// 기본 포차 손님 NPC들 (10개 테이블에서 혼술하는 정겨운 손님들)
+// 기본 포차 손님 NPC들 (10개 테이블에서 혼술하는 정겨운 샘플 손님들)
 const createInitialNPCs = (): Map<string, Player> => {
   const npcs = new Map<string, Player>();
 
@@ -33,6 +33,7 @@ const createInitialNPCs = (): Map<string, Player> => {
     rotation: -Math.PI / 2,
     action: 'sitting',
     seatedChairId: 't7_c4',
+    isNpc: true,
   };
   const npc2: Player = {
     id: 'npc_2',
@@ -43,6 +44,7 @@ const createInitialNPCs = (): Map<string, Player> => {
     rotation: Math.PI / 2,
     action: 'sitting',
     seatedChairId: 't8_c2',
+    isNpc: true,
   };
   const npc3: Player = {
     id: 'npc_3',
@@ -53,6 +55,7 @@ const createInitialNPCs = (): Map<string, Player> => {
     rotation: -Math.PI / 2,
     action: 'sitting',
     seatedChairId: 't4_c4',
+    isNpc: true,
   };
   const npc4: Player = {
     id: 'npc_4',
@@ -63,6 +66,7 @@ const createInitialNPCs = (): Map<string, Player> => {
     rotation: Math.PI / 2,
     action: 'sitting',
     seatedChairId: 't6_c2',
+    isNpc: true,
   };
   const npc5: Player = {
     id: 'npc_5',
@@ -73,6 +77,7 @@ const createInitialNPCs = (): Map<string, Player> => {
     rotation: Math.PI / 2,
     action: 'sitting',
     seatedChairId: 't9_c2',
+    isNpc: true,
   };
 
   npcs.set(npc1.id, npc1);
@@ -129,20 +134,38 @@ export const useMultiplayer = ({ onMyPlayerCreated }: UseMultiplayerProps) => {
             if (onMyPlayerCreated) onMyPlayerCreated(msg.player);
 
             const map = new Map<string, Player>();
-            (msg.allPlayers as Player[]).forEach((p) => {
-              if (p.id !== msg.player.id) {
-                map.set(p.id, p);
+            const realUsers = (msg.allPlayers as Player[]).filter((p) => p.id !== msg.player.id);
+            realUsers.forEach((p) => {
+              map.set(p.id, p);
+            });
+
+            // ★ 접속자 수에 따른 샘플 NPC 자동 퇴장 로직:
+            // 실제 유저 접속자(나 포함) 수만큼 샘플 NPC를 하나씩 포차 밖으로 귀가(제거)시킴
+            const totalRealUsers = realUsers.length + 1; // 나 포함
+            const allNpcList = Array.from(createInitialNPCs().values());
+            // 실제 유저가 늘어날 때마다 샘플 NPC가 자리를 양보하며 퇴장
+            const remainingNpcs = allNpcList.slice(Math.max(0, totalRealUsers - 1));
+
+            remainingNpcs.forEach((npc) => {
+              if (!map.has(npc.id)) {
+                map.set(npc.id, npc);
               }
             });
-            // NPC 손님들도 함께 유지
-            createInitialNPCs().forEach((npc, id) => {
-              if (!map.has(id)) map.set(id, npc);
-            });
+
             setOtherPlayers(map);
           } else if (msg.type === 'player_joined') {
             setOtherPlayers((prev) => {
               const next = new Map(prev);
               next.set(msg.player.id, msg.player);
+
+              // 실제 유저가 새로 접속하면 기존에 앉아있던 샘플 NPC를 1명씩 포차에서 자동으로 퇴장(자리 양보)
+              for (const [key, p] of next.entries()) {
+                if (p.isNpc) {
+                  next.delete(key);
+                  break; // 1명 퇴장
+                }
+              }
+
               return next;
             });
           } else if (msg.type === 'player_updated') {

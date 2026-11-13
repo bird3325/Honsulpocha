@@ -12,6 +12,7 @@ export interface Player {
   action: PlayerAction;
   seatedChairId: string | null;
   lastUpdate?: number;
+  isNpc?: boolean;
 }
 
 export interface ChairSlot {

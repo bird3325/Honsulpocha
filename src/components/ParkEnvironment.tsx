@@ -154,8 +154,8 @@ export const ParkEnvironment: React.FC<ParkEnvironmentProps> = ({ weatherMood = 
               <sphereGeometry args={[0.14, 12, 12]} />
               <meshBasicMaterial color="#ffeaa7" />
             </mesh>
-            {/* 공원 바닥과 산책로를 환하게 비추는 가로등 조명 (밝기 대폭 보강) */}
-            <pointLight color="#ffeaa7" intensity={4.5} distance={22} decay={1.8} castShadow />
+            {/* 공원 바닥과 산책로를 환하게 비추는 가로등 조명 */}
+            <pointLight color="#ffeaa7" intensity={4.5} distance={22} decay={1.8} />
           </group>
         </group>
       ))}

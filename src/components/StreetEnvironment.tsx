@@ -449,7 +449,6 @@ export const StreetEnvironment: React.FC<StreetEnvironmentProps> = ({ weatherMoo
           intensity={2.8}
           distance={18}
           decay={2}
-          castShadow
         />
         <mesh position={[1.2, 6.6, 0]}>
           <sphereGeometry args={[0.14, 12, 12]} />
@@ -473,7 +472,6 @@ export const StreetEnvironment: React.FC<StreetEnvironmentProps> = ({ weatherMoo
           intensity={2.8}
           distance={18}
           decay={2}
-          castShadow
         />
         <mesh position={[-1.2, 6.6, 0]}>
           <sphereGeometry args={[0.14, 12, 12]} />
