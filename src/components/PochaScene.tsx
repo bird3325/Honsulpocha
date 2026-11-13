@@ -506,21 +506,19 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
         />
       ))}
 
-      {/* 내 캐릭터 */}
-      {myPlayer && (
-        <Avatar
-          nickname={myPlayer.nickname}
-          color={myPlayer.color}
-          characterType={myPlayer.characterType}
-          position={playerPos.current}
-          rotation={playerRot.current}
-          positionRef={playerPos}
-          rotationRef={playerRot}
-          action={myAction}
-          isSeated={!!currentChair}
-          isMe={true}
-        />
-      )}
+      {/* 내 캐릭터 (모바일/PC 어디서든 0초 즉시 렌더링) */}
+      <Avatar
+        nickname={myPlayer?.nickname || '조용한 소주'}
+        color={myPlayer?.color || '#ecf0f1'}
+        characterType={myPlayer?.characterType || 'salaryman'}
+        position={playerPos.current}
+        rotation={playerRot.current}
+        positionRef={playerPos}
+        rotationRef={playerRot}
+        action={myAction}
+        isSeated={!!currentChair}
+        isMe={true}
+      />
 
       {/* 다른 접속자 캐릭터들 */}
       <OtherAvatars players={otherPlayers} />

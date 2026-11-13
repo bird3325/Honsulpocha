@@ -5,25 +5,119 @@ interface UseMultiplayerProps {
   onMyPlayerCreated?: (player: Player) => void;
 }
 
+// 로컬 더미 닉네임 목록 (퇴근한 직장인 감성)
+const DUMMY_NAMES = ['퇴근길 김대리', '칼퇴 꿈나무', '야근 끝난 이주임', '퇴근 후 소주한잔'];
+
+// 기본 내 캐릭터 생성 함수 (모바일/오프라인에서도 0초 즉시 생성)
+const createInitialPlayer = (): Player => ({
+  id: 'me_offline',
+  nickname: DUMMY_NAMES[Math.floor(Math.random() * DUMMY_NAMES.length)],
+  color: '#ecf0f1',
+  characterType: 'salaryman' as any,
+  position: [0, 0, 4.6],
+  rotation: Math.PI,
+  action: 'idle',
+  seatedChairId: null,
+});
+
+// 기본 포차 손님 NPC들 (10개 테이블에서 혼술하는 정겨운 손님들)
+const createInitialNPCs = (): Map<string, Player> => {
+  const npcs = new Map<string, Player>();
+
+  const npc1: Player = {
+    id: 'npc_1',
+    nickname: '야근 뒤 박과장',
+    color: '#dff9fb',
+    characterType: 'salaryman' as any,
+    position: [-2.95, 0, -1.7],
+    rotation: -Math.PI / 2,
+    action: 'sitting',
+    seatedChairId: 't7_c4',
+  };
+  const npc2: Player = {
+    id: 'npc_2',
+    nickname: '오늘도 버텼다',
+    color: '#dcdde1',
+    characterType: 'salaryman' as any,
+    position: [2.95, 0, -1.7],
+    rotation: Math.PI / 2,
+    action: 'sitting',
+    seatedChairId: 't8_c2',
+  };
+  const npc3: Player = {
+    id: 'npc_3',
+    nickname: '외로운 김대리',
+    color: '#f5cd79',
+    characterType: 'salaryman' as any,
+    position: [4.65, 0, 1.7],
+    rotation: -Math.PI / 2,
+    action: 'sitting',
+    seatedChairId: 't4_c4',
+  };
+  const npc4: Player = {
+    id: 'npc_4',
+    nickname: '칼퇴 꿈나무',
+    color: '#e8bcb9',
+    characterType: 'salaryman' as any,
+    position: [2.95, 0, 0.0],
+    rotation: Math.PI / 2,
+    action: 'sitting',
+    seatedChairId: 't6_c2',
+  };
+  const npc5: Player = {
+    id: 'npc_5',
+    nickname: '새벽 감성 송주임',
+    color: '#b8e994',
+    characterType: 'salaryman' as any,
+    position: [-4.65, 0, -3.2],
+    rotation: Math.PI / 2,
+    action: 'sitting',
+    seatedChairId: 't9_c2',
+  };
+
+  npcs.set(npc1.id, npc1);
+  npcs.set(npc2.id, npc2);
+  npcs.set(npc3.id, npc3);
+  npcs.set(npc4.id, npc4);
+  npcs.set(npc5.id, npc5);
+  return npcs;
+};
+
 export const useMultiplayer = ({ onMyPlayerCreated }: UseMultiplayerProps) => {
-  const [myPlayer, setMyPlayer] = useState<Player | null>(null);
-  const [otherPlayers, setOtherPlayers] = useState<Map<string, Player>>(new Map());
+  // ★ 핵심: 초기 상태부터 null이 아닌 즉각적인 기본 플레이어 및 손님 NPC를 세팅하여 모바일 로딩 지연/실종 완전 차단
+  const [myPlayer, setMyPlayer] = useState<Player>(createInitialPlayer);
+  const [otherPlayers, setOtherPlayers] = useState<Map<string, Player>>(createInitialNPCs);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const socketRef = useRef<WebSocket | null>(null);
 
-  // 로컬 더미 닉네임 목록 (퇴근한 직장인 감성)
-  const DUMMY_NAMES = ['퇴근길 김대리', '칼퇴 꿈나무', '야근 끝난 이주임', '퇴근 후 소주한잔'];
-
   useEffect(() => {
+    // 0초 즉시 초기 플레이어 콜백 전달
+    if (onMyPlayerCreated && myPlayer) {
+      onMyPlayerCreated(myPlayer);
+    }
+
+    // 웹소켓 연결 시도 (모바일 환경 등에서 8080 포트 차단/대기 상태여도 위 기본 캐릭터로 즉각 플레이 가능)
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.hostname}:8080`;
 
-    let ws: WebSocket;
+    let ws: WebSocket | null = null;
+    let connectTimeout: any = null;
+
     try {
       ws = new WebSocket(wsUrl);
       socketRef.current = ws;
 
+      // 1.5초 이상 응답 없으면 타임아웃하여 모바일 브라우저 소켓 블로킹 방지
+      connectTimeout = setTimeout(() => {
+        if (ws && ws.readyState !== WebSocket.OPEN) {
+          try {
+            ws.close();
+          } catch (err) {}
+        }
+      }, 1500);
+
       ws.onopen = () => {
+        if (connectTimeout) clearTimeout(connectTimeout);
         setIsConnected(true);
       };
 
@@ -39,6 +133,10 @@ export const useMultiplayer = ({ onMyPlayerCreated }: UseMultiplayerProps) => {
               if (p.id !== msg.player.id) {
                 map.set(p.id, p);
               }
+            });
+            // NPC 손님들도 함께 유지
+            createInitialNPCs().forEach((npc, id) => {
+              if (!map.has(id)) map.set(id, npc);
             });
             setOtherPlayers(map);
           } else if (msg.type === 'player_joined') {
@@ -66,93 +164,19 @@ export const useMultiplayer = ({ onMyPlayerCreated }: UseMultiplayerProps) => {
       };
 
       ws.onerror = () => {
-        console.warn('웹소켓 서버 미실행 -> 로컬 감성 싱글플레이어 모드로 실행');
-        setupOfflinePlayer();
+        if (connectTimeout) clearTimeout(connectTimeout);
       };
 
       ws.onclose = () => {
+        if (connectTimeout) clearTimeout(connectTimeout);
         setIsConnected(false);
       };
     } catch (e) {
-      setupOfflinePlayer();
-    }
-
-    function setupOfflinePlayer() {
-      if (myPlayer) return;
-      const initial: Player = {
-        id: 'me_offline',
-        nickname: DUMMY_NAMES[Math.floor(Math.random() * DUMMY_NAMES.length)],
-        color: '#ecf0f1',
-        characterType: 'salaryman' as any,
-        position: [0, 0, 4.6],
-        rotation: Math.PI,
-        action: 'idle',
-        seatedChairId: null,
-      };
-      setMyPlayer(initial);
-      if (onMyPlayerCreated) onMyPlayerCreated(initial);
-
-      // 외롭지 않게 조용히 포차 자리에 앉아 혼술하는 다른 직장인들 (10개 테이블 합석 인터랙션용)
-      const npc1: Player = {
-        id: 'npc_1',
-        nickname: '야근 뒤 박과장',
-        color: '#dff9fb',
-        characterType: 'salaryman' as any,
-        position: [-2.95, 0, -1.7],
-        rotation: -Math.PI / 2,
-        action: 'sitting',
-        seatedChairId: 't7_c4',
-      };
-      const npc2: Player = {
-        id: 'npc_2',
-        nickname: '오늘도 버텼다',
-        color: '#dcdde1',
-        characterType: 'salaryman' as any,
-        position: [2.95, 0, -1.7],
-        rotation: Math.PI / 2,
-        action: 'sitting',
-        seatedChairId: 't8_c2',
-      };
-      const npc3: Player = {
-        id: 'npc_3',
-        nickname: '외로운 김대리',
-        color: '#f5cd79',
-        characterType: 'salaryman' as any,
-        position: [4.65, 0, 1.7],
-        rotation: -Math.PI / 2,
-        action: 'sitting',
-        seatedChairId: 't4_c4',
-      };
-      const npc4: Player = {
-        id: 'npc_4',
-        nickname: '칼퇴 꿈나무',
-        color: '#e8bcb9',
-        characterType: 'salaryman' as any,
-        position: [2.95, 0, 0.0],
-        rotation: Math.PI / 2,
-        action: 'sitting',
-        seatedChairId: 't6_c2',
-      };
-      const npc5: Player = {
-        id: 'npc_5',
-        nickname: '새벽 감성 송주임',
-        color: '#b8e994',
-        characterType: 'salaryman' as any,
-        position: [-4.65, 0, -3.2],
-        rotation: Math.PI / 2,
-        action: 'sitting',
-        seatedChairId: 't9_c2',
-      };
-      const npcs = new Map<string, Player>();
-      npcs.set(npc1.id, npc1);
-      npcs.set(npc2.id, npc2);
-      npcs.set(npc3.id, npc3);
-      npcs.set(npc4.id, npc4);
-      npcs.set(npc5.id, npc5);
-      setOtherPlayers(npcs);
+      // 오프라인 모드 유지
     }
 
     return () => {
+      if (connectTimeout) clearTimeout(connectTimeout);
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.close();
       }
