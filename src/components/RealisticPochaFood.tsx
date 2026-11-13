@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef, useMemo } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 
 interface RealisticPochaFoodProps {
   itemId: string;
@@ -8,14 +9,117 @@ interface RealisticPochaFoodProps {
   rotation?: [number, number, number];
 }
 
+// 뚝배기 및 국물 냄비 (라면, 우동, 잔치국수, 홍합탕, 어묵탕, 계란탕, 번데기탕)
+const HOT_STEW_ITEMS = new Set([
+  'food_ramen',
+  'food_udon',
+  'food_guksu',
+  'food_mussel',
+  'food_fishcake',
+  'food_egg_soup',
+  'food_beondegi',
+]);
+
+// 갓 볶거나 구워낸 따뜻한 안주 (오돌뼈, 닭똥집, 꼼장어, 오징어볶음, 닭발, 두부김치, 꽁치구이, 계란말이, 오징어데침, 은행구이)
+const HOT_ANJU_ITEMS = new Set([
+  'food_odolppyeo',
+  'food_dakttongjip',
+  'food_kkomjangeo',
+  'food_ojingeo_bokkeum',
+  'food_dakbal',
+  'food_tofu_kimchi',
+  'food_kkongchi',
+  'food_gyeranmari',
+  'food_ojingeo_dechim',
+  'food_eunhaeng',
+]);
+
+// 따뜻한 음식 위로 모락모락 피어오르는 김 (Steam / Vapor) 파티클 컴포넌트
+const HotFoodSteam: React.FC<{ height?: number; spread?: number; intensity?: number }> = ({
+  height = 0.08,
+  spread = 0.05,
+  intensity = 1.0,
+}) => {
+  const particles = useMemo(() => {
+    return Array.from({ length: 8 }).map((_, i) => ({
+      seed: i * 1.37,
+      baseX: (Math.random() - 0.5) * spread,
+      baseZ: (Math.random() - 0.5) * spread,
+      speed: 0.14 + Math.random() * 0.08,
+      initialOffset: i / 8,
+    }));
+  }, [spread]);
+
+  const refs = useRef<(THREE.Mesh | null)[]>([]);
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    particles.forEach((p, idx) => {
+      const mesh = refs.current[idx];
+      if (!mesh) return;
+
+      // 0 ~ 1 라이프사이클 계산
+      const progress = (t * p.speed + p.initialOffset) % 1;
+
+      // 위로 피어오르며 상승
+      mesh.position.y = height + progress * 0.22;
+
+      // 대류 현상에 따른 좌우 살랑살랑 요동
+      mesh.position.x = p.baseX + Math.sin(t * 2.4 + p.seed) * (0.012 + progress * 0.03);
+      mesh.position.z = p.baseZ + Math.cos(t * 2.0 + p.seed) * (0.012 + progress * 0.03);
+
+      // 위로 올라갈수록 부드럽게 몽글몽글 퍼짐
+      const currentScale = (0.7 + progress * 2.4) * intensity;
+      mesh.scale.set(currentScale, currentScale, currentScale);
+
+      // 페이드 인 / 아웃 (중간에서 선명, 위에서 사라짐)
+      const alpha = Math.sin(progress * Math.PI) * 0.22 * intensity;
+      if (mesh.material instanceof THREE.MeshStandardMaterial) {
+        mesh.material.opacity = alpha;
+      }
+    });
+  });
+
+  return (
+    <group>
+      {particles.map((_, idx) => (
+        <mesh
+          key={idx}
+          ref={(el) => {
+            refs.current[idx] = el;
+          }}
+          position={[0, height, 0]}
+        >
+          <sphereGeometry args={[0.022, 8, 8]} />
+          <meshStandardMaterial
+            color="#ffffff"
+            transparent
+            opacity={0.15}
+            roughness={1}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
 export const RealisticPochaFood: React.FC<RealisticPochaFoodProps> = ({
   itemId,
   scale = 1,
   position = [0, 0, 0],
   rotation = [0, 0, 0],
 }) => {
+  const isHotStew = HOT_STEW_ITEMS.has(itemId);
+  const isHotAnju = HOT_ANJU_ITEMS.has(itemId);
+
   return (
     <group position={position} rotation={rotation} scale={[scale, scale, scale]}>
+      {/* 따뜻한 국물/뚝배기 메뉴: 풍성한 김 모락모락 */}
+      {isHotStew && <HotFoodSteam height={0.08} spread={0.06} intensity={1.15} />}
+
+      {/* 갓 볶아낸 따뜻한 안주 메뉴: 은은한 김 모락모락 */}
+      {isHotAnju && <HotFoodSteam height={0.04} spread={0.07} intensity={0.9} />}
       {/* 1. 주류: 테라 맥주 (초록병 + TERRA 라벨 + 맥주잔 거품) */}
       {itemId === 'beer_terra' && (
         <group>

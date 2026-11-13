@@ -1,10 +1,12 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface VirtualJoystickProps {
   onMove: (x: number, y: number) => void;
 }
 
 export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({ onMove }) => {
+  const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const [knobPos, setKnobPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isActive, setIsActive] = useState<boolean>(false);
@@ -119,6 +121,8 @@ export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({ onMove }) => {
       window.removeEventListener('touchcancel', onTouchEnd);
     };
   }, [isActive, handlePointerMove, handlePointerEnd]);
+
+  if (!isMobile) return null;
 
   return (
     <div

@@ -14,10 +14,11 @@ export const GrandmaBoss: React.FC = () => {
   const headRef = useRef<THREE.Group>(null);
   const trayRef = useRef<THREE.Group>(null);
 
-  // 기본 주방 위치 및 통로 웨이포인트 (카운터를 관통하지 않고 우측 통로로 이동)
+  // 기본 주방 위치 및 통로 웨이포인트 (카운터 및 테이블을 관통하지 않는 직각 복도 보행 시스템)
   const HOME_POS: [number, number, number] = [0, 0, -4.8];
-  const KITCHEN_DOOR: [number, number, number] = [3.2, 0, -4.8]; // 카운터 우측 통로
-  const HALL_CORRIDOR: [number, number, number] = [3.2, 0, -3.3]; // 홀 복도
+  const KITCHEN_SIDE_EXIT: [number, number, number] = [3.0, 0, -4.8]; // 카운터 우측 통로
+  const KITCHEN_CORNER: [number, number, number] = [3.0, 0, -3.5];    // 카운터 앞 코너
+  const AISLE_KITCHEN_FRONT: [number, number, number] = [0, 0, -3.5]; // 포차 중앙 복도 합류점
 
   const [bossState, setBossState] = useState<BossState>('cooking');
   const [currentOrder, setCurrentOrder] = useState<ServingOrder | null>(null);
@@ -47,13 +48,17 @@ export const GrandmaBoss: React.FC = () => {
 
       const order = customEvent.detail;
       setCurrentOrder(order);
-      setSpeechText(`"네~ 손님! 주문하신 ${order.item.name} 정성껏 가져다 드릴게요!"`);
+      const orderItems = order.items && order.items.length > 0 ? order.items : [order.item];
+      const itemNames = orderItems.map((it) => it.name).join(', ');
+      setSpeechText(`"네~ 손님! 주문하신 ${itemNames} 정성껏 가져다 드릴게요!"`);
       soundManager.playOrderSound();
 
-      // 웨이포인트 생성: 조리대 -> 카운터 우측 통로 -> 홀 복도 -> 손님 테이블 앞
+      // 안전 복도 웨이포인트 생성: 조리대 -> 카운터 우측 통로 -> 카운터 코너 -> 중앙 복도 합류 -> 테이블 Z 복도 지점 -> 테이블 옆 서빙 스팟
       waypointsRef.current = [
-        KITCHEN_DOOR,
-        HALL_CORRIDOR,
+        KITCHEN_SIDE_EXIT,
+        KITCHEN_CORNER,
+        AISLE_KITCHEN_FRONT,
+        [0, 0, order.targetPos[2]],
         order.targetPos,
       ];
       waypointIdxRef.current = 0;
@@ -116,29 +121,47 @@ export const GrandmaBoss: React.FC = () => {
           setBossState('serving');
           serveTimer.current = 0;
           soundManager.playPouringSound();
-          setSpeechText(`"주문하신 ${currentOrder?.item.name} 나왔습니다~ 맛있게 드셔요!"`);
 
-          // 테이블 위에 주문한 메뉴 세팅 이벤트 발송
-          if (currentOrder) {
-            window.dispatchEvent(
-              new CustomEvent('pocha_table_delivered', {
-                detail: {
-                  tableId: currentOrder.tableId,
-                  item: currentOrder.item,
-                },
-              })
-            );
+          const orderItems = currentOrder?.items && currentOrder.items.length > 0
+            ? currentOrder.items
+            : currentOrder?.item ? [currentOrder.item] : [];
+          const itemNames = orderItems.map((it) => it.name).join(', ');
+          setSpeechText(`"주문하신 ${itemNames || '메뉴'} 나왔습니다~ 맛있게 드셔요!"`);
+
+          // 테이블 위에 주문한 모든 메뉴 세팅 이벤트 발송
+          if (currentOrder && orderItems.length > 0) {
+            orderItems.forEach((it) => {
+              window.dispatchEvent(
+                new CustomEvent('pocha_table_delivered', {
+                  detail: {
+                    tableId: currentOrder.tableId,
+                    item: it,
+                  },
+                })
+              );
+            });
           }
         }
       }
     } else if (bossState === 'serving') {
-      // 테이블 앞에서 정성껏 메뉴를 내려놓고 인사
+      // 테이블 앞에서 테이블을 다정하게 바라보며 메뉴를 내려놓고 인사
       serveTimer.current += delta;
+
+      // 테이블 방향(좌측 테이블이면 -90도, 우측 테이블이면 +90도)으로 부드럽게 시선 회전
+      if (currentOrder?.targetPos) {
+        const faceAngle = currentOrder.targetPos[0] < 0 ? -Math.PI / 2 : Math.PI / 2;
+        currentRot.current = THREE.MathUtils.lerp(currentRot.current, faceAngle, delta * 6);
+      }
+
       if (serveTimer.current > 3.5) {
-        // 서빙 완료 후 주방으로 복귀 경로 웨이포인트 설정
+        // 서빙 완료 후 주방으로 복귀 경로 웨이포인트 설정:
+        // 테이블 옆 -> 중앙 복도로 후퇴 -> 중앙 복도 따라 주방 앞 직진 -> 카운터 코너 -> 카운터 통로 -> 조리대
+        const targetZ = currentOrder?.targetPos ? currentOrder.targetPos[2] : -3.3;
         waypointsRef.current = [
-          HALL_CORRIDOR,
-          KITCHEN_DOOR,
+          [0, 0, targetZ],
+          AISLE_KITCHEN_FRONT,
+          KITCHEN_CORNER,
+          KITCHEN_SIDE_EXIT,
           HOME_POS,
         ];
         waypointIdxRef.current = 0;

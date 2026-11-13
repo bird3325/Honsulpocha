@@ -1,5 +1,5 @@
 export type CharacterType = 'salaryman' | 'cat' | 'bear' | 'rabbit' | 'dog';
-export type PlayerAction = 'idle' | 'walking' | 'sitting' | 'cheers' | 'pouring';
+export type PlayerAction = 'idle' | 'walking' | 'sitting' | 'cheers' | 'pouring' | 'drinking' | 'eating';
 export type WeatherMood = 'rainy' | 'snowy' | 'sunset' | 'starry';
 
 export interface Player {
@@ -26,6 +26,7 @@ export interface ChairSlot {
 export interface PochaMenuItem {
   id: string;
   name: string;
+  enName?: string;
   category: 'drink' | 'food';
   price: string;
   desc: string;
@@ -36,6 +37,7 @@ export interface PochaMenuItem {
 
 export interface ServingOrder {
   item: PochaMenuItem;
+  items?: PochaMenuItem[];
   targetPos: [number, number, number];
   tableName?: string;
   tableId?: string;

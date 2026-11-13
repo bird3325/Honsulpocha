@@ -6,8 +6,10 @@ import { RealisticPochaFood } from './RealisticPochaFood';
 export interface TableServing {
   hasDrink: boolean;
   drinkId?: string;
+  drinkCount?: number; // 남은 술 잔 수 (한 병 기준 8잔)
   hasFood: boolean;
   foodId?: string;
+  foodCount?: number;  // 남은 안주 입 수 (메뉴 한 개 기준 8입)
 }
 
 interface PochaTableProps {
@@ -115,21 +117,21 @@ export const PochaTable: React.FC<PochaTableProps> = ({
 
       {/* 2. 테이블 위 주문 서빙 소품 (실제 주문한 메뉴와 100% 동일한 3D 음식 모델) */}
       <group position={[0, 0.76, 0]}>
-        {/* A. 주류 서빙 완료 시 나타나는 술병과 잔 */}
+        {/* A. 주류 서빙 완료 시 나타나는 술병과 잔 (혼자서 한 병 기준 8잔에 맞춘 점진적 소비 스케일) */}
         {hasDrink && servedOrder?.drinkId && (
           <RealisticPochaFood
             itemId={servedOrder.drinkId}
             position={[-0.15, 0, 0.08]}
-            scale={1.0}
+            scale={0.7 + ((servedOrder.drinkCount ?? 8) / 8) * 0.3}
           />
         )}
 
-        {/* B. 안주 서빙 완료 시 나타나는 정갈한 음식 요리 접시/냄비/뚝배기 */}
+        {/* B. 안주 서빙 완료 시 나타나는 정갈한 음식 요리 접시/냄비/뚝배기 (메뉴 한 개 기준 8입 점진적 소비) */}
         {hasFood && servedOrder?.foodId && (
           <RealisticPochaFood
             itemId={servedOrder.foodId}
             position={[0.08, 0, -0.04]}
-            scale={1.0}
+            scale={0.6 + ((servedOrder.foodCount ?? 8) / 8) * 0.4}
           />
         )}
 

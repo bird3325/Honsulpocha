@@ -5,6 +5,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'beer_terra',
     name: '테라',
+    enName: 'TERRA',
     category: 'drink',
     price: '5,000',
     desc: '청정라거 테라 시원한 맥주',
@@ -14,6 +15,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'soju_general',
     name: '소주',
+    enName: 'Soju',
     hanja: '烧酒',
     category: 'drink',
     price: '5,000',
@@ -24,6 +26,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'soju_chamisul',
     name: '참이슬',
+    enName: 'Chamisul',
     hanja: '真露',
     category: 'drink',
     price: '5,000',
@@ -34,6 +37,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'drink_cheongha',
     name: '청하',
+    enName: 'Cheongha',
     hanja: '清酒',
     category: 'drink',
     price: '6,000',
@@ -44,6 +48,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'drink_maehwasu',
     name: '매화수',
+    enName: 'Maehwasu',
     hanja: '梅花秀',
     category: 'drink',
     price: '6,000',
@@ -54,6 +59,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'drink_grapefruit',
     name: '자몽에이슬',
+    enName: 'Grapefruit',
     category: 'drink',
     price: '5,000',
     desc: '상큼한 자몽 과즙 소주',
@@ -65,6 +71,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'bev_cola',
     name: '콜라',
+    enName: 'Cola',
     hanja: '可乐',
     category: 'drink',
     price: '2,000',
@@ -75,6 +82,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'bev_cider',
     name: '사이다',
+    enName: 'Cider',
     hanja: '汽水',
     category: 'drink',
     price: '2,000',
@@ -87,6 +95,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_udon',
     name: '우동',
+    enName: 'Udon',
     hanja: '乌冬面',
     category: 'food',
     price: '4,000',
@@ -97,6 +106,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_ramen',
     name: '라면계란',
+    enName: 'Ramen',
     hanja: '方便面',
     category: 'food',
     price: '5,000',
@@ -107,6 +117,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_guksu',
     name: '잔치국수',
+    enName: 'Noodles',
     hanja: '喜面',
     category: 'food',
     price: '4,000',
@@ -119,6 +130,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_mussel',
     name: '홍합탕',
+    enName: 'Mussel Soup',
     hanja: '乌冬面',
     category: 'food',
     price: '10,000',
@@ -129,6 +141,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_fishcake',
     name: '어묵탕',
+    enName: 'Fishcake',
     hanja: '方便面',
     category: 'food',
     price: '10,000',
@@ -139,6 +152,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_egg_soup',
     name: '계란탕',
+    enName: 'Egg Soup',
     hanja: '喜面',
     category: 'food',
     price: '10,000',
@@ -149,6 +163,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_beondegi',
     name: '번데기탕',
+    enName: 'Pupae Soup',
     hanja: '蚕蛹汤',
     category: 'food',
     price: '10,000',
@@ -161,6 +176,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_odolppyeo',
     name: '오돌뼈',
+    enName: 'Cartilage',
     hanja: '月牙骨',
     category: 'food',
     price: '12,000',
@@ -171,6 +187,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_dakttongjip',
     name: '닭똥집',
+    enName: 'Gizzard',
     hanja: '烤鸡胗',
     category: 'food',
     price: '12,000',
@@ -181,6 +198,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_kkomjangeo',
     name: '꼼장어',
+    enName: 'Hagfish',
     hanja: '盲鳗',
     category: 'food',
     price: '12,000',
@@ -191,6 +209,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_ojingeo_bokkeum',
     name: '오징어볶음',
+    enName: 'Squid Stir-fry',
     hanja: '辣炒鱿鱼',
     category: 'food',
     price: '12,000',
@@ -201,6 +220,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_dakbal',
     name: '닭발',
+    enName: 'Chicken Feet',
     hanja: '鸡爪',
     category: 'food',
     price: '12,000',
@@ -211,6 +231,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_tofu_kimchi',
     name: '두부김치',
+    enName: 'Tofu Kimchi',
     hanja: '炒泡菜佐豆腐',
     category: 'food',
     price: '12,000',
@@ -221,6 +242,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_kkongchi',
     name: '꽁치구이',
+    enName: 'Saury',
     hanja: '烤秋刀鱼',
     category: 'food',
     price: '12,000',
@@ -233,6 +255,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_kkomak',
     name: '꼬막',
+    enName: 'Cockles',
     hanja: '毛蚶',
     category: 'food',
     price: '12,000',
@@ -243,6 +266,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_pikkomaek',
     name: '피꼬막',
+    enName: 'Blood Clam',
     hanja: '血蚶',
     category: 'food',
     price: '12,000',
@@ -253,6 +277,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_seokgul',
     name: '석굴',
+    enName: 'Fresh Oyster',
     hanja: '石窟',
     category: 'food',
     price: '12,000',
@@ -263,6 +288,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_gyeranmari',
     name: '계란말이',
+    enName: 'Egg Roll',
     hanja: '鸡蛋卷',
     category: 'food',
     price: '12,000',
@@ -273,6 +299,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_ojingeo_dechim',
     name: '오징어데침',
+    enName: 'Boiled Squid',
     hanja: '清焯活鱿鱼',
     category: 'food',
     price: '12,000',
@@ -283,6 +310,7 @@ export const POCHA_MENUS: PochaMenuItem[] = [
   {
     id: 'food_eunhaeng',
     name: '은행구이',
+    enName: 'Ginkgo Nuts',
     hanja: '清焯活鱿鱼',
     category: 'food',
     price: '10,000',

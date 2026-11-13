@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Text, Billboard } from '@react-three/drei';
 import { PlayerAction } from '../types';
+import { soundManager } from './AudioController';
 
 interface AvatarProps {
   nickname: string;
@@ -15,6 +16,7 @@ interface AvatarProps {
   action: PlayerAction;
   isSeated?: boolean; // 의자 착석 여부 (액션과 독립적으로 실제 착석 상태 유지)
   isMe?: boolean;
+  autoThought?: string | null; // 오토모드 사색 독백 말풍선
 }
 
 export const Avatar: React.FC<AvatarProps> = ({
@@ -27,11 +29,14 @@ export const Avatar: React.FC<AvatarProps> = ({
   action,
   isSeated,
   isMe = false,
+  autoThought = null,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const handRef = useRef<THREE.Group>(null);
+  const headRef = useRef<THREE.Group>(null);
   const bodyRef = useRef<THREE.Group>(null);
   const tieRef = useRef<THREE.Group>(null);
+  const lastStepTimeRef = useRef<number>(0);
 
   // 착석 여부 결정 (명시적인 isSeated가 있으면 우선, 없을 시 액션이 sitting일 때만 true)
   const isSitting = isSeated !== undefined ? isSeated : action === 'sitting';
@@ -65,10 +70,17 @@ export const Avatar: React.FC<AvatarProps> = ({
 
     const time = state.clock.elapsedTime;
 
-    // 1. 퇴근길 피로하지만 편안한 발걸음 (몸 살짝 기우뚱)
+    // 1. 퇴근길 피로하지만 편안한 발걸음 (몸 살짝 기우뚱) + 날씨별 발자국 효과음
     if (action === 'walking' && bodyRef.current) {
       bodyRef.current.rotation.z = Math.sin(time * 10) * 0.08;
       bodyRef.current.position.y = Math.abs(Math.sin(time * 10)) * 0.05;
+
+      // 걷는 동안 발자국 소리 (눈 오는 날엔 뽀드득, 비/맑은 날엔 사각사각)
+      if (isMe && time - lastStepTimeRef.current > 0.35) {
+        lastStepTimeRef.current = time;
+        soundManager.playPlayerFootstep();
+      }
+
       // 걷는 동안 느슨한 넥타이가 살랑살랑 흔들림
       if (tieRef.current) {
         tieRef.current.rotation.z = Math.sin(time * 10) * 0.15;
@@ -81,27 +93,57 @@ export const Avatar: React.FC<AvatarProps> = ({
       }
     }
 
-    // 2. 한잔하기 (Cheers) 제스처 (착석 상태와 기립 상태에 맞춘 정확한 손 높이)
+    // 2. 음주 및 식사 제스처 (착석 상태와 기립 상태에 맞춘 정밀 손 & 고개 모션)
     const baseHandY = isSitting ? 0.72 : 0.45;
     const baseHandZ = isSitting ? 0.22 : 0.16;
 
-    if (action === 'cheers' && handRef.current) {
-      // 술잔을 앞으로 들고 짠! 하는 제스처 (몸통 위치는 변하지 않고 손만 올라감)
+    if (action === 'drinking' && handRef.current) {
+      // ★ 혼술 사색: 잔을 입술로 가져가서 홀짝홀짝 털어 넣는 생생한 모션
+      handRef.current.position.y = baseHandY + 0.26 + Math.sin(time * 6) * 0.02;
+      handRef.current.position.z = baseHandZ - 0.04;
+      handRef.current.rotation.x = -1.15 + Math.sin(time * 6) * 0.08;
+      handRef.current.rotation.z = -0.3;
+      if (headRef.current) {
+        // 소주가 목구멍으로 넘어갈 때 살짝 뒤로 젖혀지는 고개
+        headRef.current.rotation.x = -0.16 + Math.sin(time * 6) * 0.04;
+      }
+    } else if (action === 'eating' && handRef.current) {
+      // ★ 안주 먹기: 안주를 입에 쏙 넣고 오물오물 씹는 감성 모션
+      handRef.current.position.y = baseHandY + 0.18 + Math.sin(time * 8) * 0.05;
+      handRef.current.position.z = baseHandZ + 0.02;
+      handRef.current.rotation.x = -0.55 + Math.sin(time * 8) * 0.15;
+      handRef.current.rotation.z = 0;
+      if (headRef.current) {
+        // 맛있는 안주를 우물우물 씹으며 끄덕이는 고개
+        headRef.current.rotation.x = 0.08 + Math.sin(time * 8) * 0.06;
+      }
+    } else if (action === 'cheers' && handRef.current) {
+      // 술잔을 앞으로 들고 짠! 하는 제스처
       handRef.current.position.y = baseHandY + 0.18 + Math.sin(time * 6) * 0.03;
       handRef.current.position.z = baseHandZ + 0.12;
       handRef.current.rotation.x = -Math.PI / 4 + Math.sin(time * 6) * 0.15;
       handRef.current.rotation.z = 0;
+      if (headRef.current) {
+        headRef.current.rotation.x = Math.sin(time * 1.5) * 0.02;
+      }
     } else if (action === 'pouring' && handRef.current) {
       // 소주 따르기 제스처
       handRef.current.position.y = baseHandY + 0.1;
       handRef.current.position.z = baseHandZ + 0.08;
       handRef.current.rotation.z = -0.5 + Math.sin(time * 4) * 0.1;
       handRef.current.rotation.x = -0.15;
+      if (headRef.current) {
+        headRef.current.rotation.x = 0.08;
+      }
     } else if (handRef.current) {
       handRef.current.position.y = baseHandY;
       handRef.current.position.z = baseHandZ;
       handRef.current.rotation.x = 0;
       handRef.current.rotation.z = 0;
+      if (headRef.current) {
+        // 평상시 자연스러운 숨쉬기 및 사색 끄덕임
+        headRef.current.rotation.x = Math.sin(time * 1.5) * 0.02;
+      }
     }
   });
 
@@ -130,6 +172,26 @@ export const Avatar: React.FC<AvatarProps> = ({
             <coneGeometry args={[0.045, 0.09, 6]} />
             <meshBasicMaterial color="#ffeaa7" />
           </mesh>
+        )}
+
+        {/* 오토모드 혼술 사색 독백 말풍선 */}
+        {isMe && autoThought && (
+          <group position={[0, 0.42, 0]}>
+            <mesh position={[0, 0, -0.01]}>
+              <planeGeometry args={[Math.max(1.4, autoThought.length * 0.11), 0.28]} />
+              <meshBasicMaterial color="#1e272e" transparent opacity={0.88} />
+            </mesh>
+            <Text
+              fontSize={0.11}
+              color="#ffeaa7"
+              anchorX="center"
+              anchorY="middle"
+              outlineWidth={0.015}
+              outlineColor="#000000"
+            >
+              💭 {autoThought}
+            </Text>
+          </group>
         )}
       </Billboard>
 
@@ -180,7 +242,7 @@ export const Avatar: React.FC<AvatarProps> = ({
         </group>
 
         {/* 4. 직장인 얼굴 & 단정한 헤어 */}
-        <group position={[0, isSitting ? 1.04 : 0.9, 0]}>
+        <group ref={headRef} position={[0, isSitting ? 1.04 : 0.9, 0]}>
           {/* 얼굴 */}
           <mesh castShadow>
             <sphereGeometry args={[0.22, 20, 20]} />
@@ -252,8 +314,8 @@ export const Avatar: React.FC<AvatarProps> = ({
             <meshStandardMaterial color={color} roughness={0.5} />
           </mesh>
 
-          {/* 오직 오른손에만 들려있는 단 하나의 맑은 소주잔 */}
-          {(action === 'cheers' || isSitting) && (
+          {/* 오른손 소주잔 (착석, cheers, drinking 시 들려있음) */}
+          {(action === 'cheers' || action === 'drinking' || (isSitting && action !== 'eating')) && (
             <group position={[0, 0.04, 0.05]}>
               <mesh>
                 <cylinderGeometry args={[0.024, 0.018, 0.05, 16]} />
@@ -264,6 +326,20 @@ export const Avatar: React.FC<AvatarProps> = ({
                   roughness={0.1}
                   metalness={0.2}
                 />
+              </mesh>
+            </group>
+          )}
+
+          {/* 오른손 젓가락 (안주 먹기 action === 'eating' 시 들려있음) */}
+          {action === 'eating' && (
+            <group position={[0, 0.06, 0.06]} rotation={[-0.4, 0.2, 0]}>
+              <mesh position={[-0.008, 0, 0]}>
+                <cylinderGeometry args={[0.003, 0.002, 0.16, 6]} />
+                <meshStandardMaterial color="#dfe6e9" metalness={0.7} roughness={0.3} />
+              </mesh>
+              <mesh position={[0.008, 0, 0]}>
+                <cylinderGeometry args={[0.003, 0.002, 0.16, 6]} />
+                <meshStandardMaterial color="#dfe6e9" metalness={0.7} roughness={0.3} />
               </mesh>
             </group>
           )}

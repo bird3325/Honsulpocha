@@ -34,6 +34,9 @@ interface PochaSceneProps {
   weatherMood?: WeatherMood;
   tableServings?: Record<string, TableServing>;
   joystickVector?: React.MutableRefObject<{ x: number; y: number }>;
+  autoThought?: string | null;
+  isExiting?: boolean;
+  onExitComplete?: () => void;
 }
 
 export const PochaScene: React.FC<PochaSceneProps> = ({
@@ -48,6 +51,9 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
   weatherMood = 'rainy',
   tableServings,
   joystickVector,
+  autoThought = null,
+  isExiting = false,
+  onExitComplete,
 }) => {
   const keys = useKeyboard();
   const playerPos = useRef<[number, number, number]>([0, 0, 4.6]); // 처음 시작 시 포장마차 입구 중앙에 배치
@@ -315,6 +321,34 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
     }
     lastInteractRef.current = keys.interact;
 
+    // 1-A. 포차 나가기(퇴장) 자동 걷기 모드: 입구 밖으로 걸어나와 포차를 벗어나면 로그아웃
+    if (isExiting) {
+      if (currentChair) {
+        handleStandUp();
+      }
+      isMoving = true;
+      const targetExitX = 0;
+      const targetExitZ = 6.4;
+
+      const diffX = targetExitX - playerPos.current[0];
+      const diffZ = targetExitZ - playerPos.current[2];
+
+      const exitAngle = Math.atan2(diffX, diffZ);
+      playerRot.current = exitAngle;
+
+      const exitSpeed = 2.2 * delta;
+      playerPos.current[0] += Math.sin(exitAngle) * exitSpeed;
+      playerPos.current[2] += Math.cos(exitAngle) * exitSpeed;
+
+      onUpdatePlayer(playerPos.current, playerRot.current, 'walking', null);
+
+      // 포차 천막 밖 길거리(z >= 5.6)에 도달하면 퇴장(로그아웃) 콜백 호출
+      if (playerPos.current[2] >= 5.6 && onExitComplete) {
+        onExitComplete();
+      }
+      return; // 퇴장 중에는 다른 수동 조작 방지
+    }
+
     // 2. 키보드 + 모바일 가상 조이스틱 이동 (카메라 시야 기준 360도 이동 & 즉각적인 전방 회전)
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
@@ -518,6 +552,7 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
         action={myAction}
         isSeated={!!currentChair}
         isMe={true}
+        autoThought={autoThought}
       />
 
       {/* 다른 접속자 캐릭터들 */}

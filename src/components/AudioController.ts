@@ -8,6 +8,15 @@ class AudioEngine {
   private rainGain: GainNode | null = null;
   private currentMood: 'rainy' | 'snowy' | 'sunset' | 'starry' = 'rainy';
   private musicInterval: any = null;
+  private ambientInterval: any = null;
+  private noiseBuffer: AudioBuffer | null = null;
+  private lastAmbientTimes = {
+    car: 0,
+    pedestrian: 0,
+    murmur: 0,
+    snowStep: 0,
+    sizzle: 0,
+  };
 
   public init() {
     if (this.isInitialized) return;
@@ -15,11 +24,25 @@ class AudioEngine {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       this.ctx = new AudioContextClass();
       this.isInitialized = true;
+      this.createNoiseBuffer();
       this.startRainAmbience();
       this.startLoFiChords();
+      this.startAmbientSoundScape();
     } catch (e) {
       console.warn('Web Audio 초기화 실패:', e);
     }
+  }
+
+  // 공용 화이트 노이즈 버퍼 생성 (효율적인 재사용)
+  private createNoiseBuffer() {
+    if (!this.ctx) return;
+    const bufferSize = this.ctx.sampleRate * 2;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+    this.noiseBuffer = buffer;
   }
 
   // 1. 밤 빗소리 앰비언스 (핑크 노이즈 + 필터링)
@@ -241,6 +264,295 @@ class AudioEngine {
     popGain.connect(this.ctx.destination);
     popOsc.start(popTime);
     popOsc.stop(popTime + 0.1);
+  }
+
+  // 6. 안주 한 입 맛있게 먹는 "바삭 냠냠" 효과음
+  public playEatSound() {
+    if (!this.ctx || this.isMuted) return;
+    this.ensureRunning();
+
+    const now = this.ctx.currentTime;
+    // 두 번의 가벼운 씹는 바이트 사운드
+    [0, 0.14].forEach((offset, idx) => {
+      if (!this.ctx) return;
+      const biteTime = now + offset;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'triangle';
+      const startFreq = idx === 0 ? 380 : 440;
+      osc.frequency.setValueAtTime(startFreq, biteTime);
+      osc.frequency.exponentialRampToValueAtTime(140, biteTime + 0.09);
+
+      gain.gain.setValueAtTime(0.14, biteTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, biteTime + 0.09);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(biteTime);
+      osc.stop(biteTime + 0.1);
+    });
+  }
+
+  // 7. [비소리] 포차 비닐 천막에 톡, 토독 떨어지는 빗방울 소리
+  public playTarpRainDrop() {
+    if (!this.ctx || this.isMuted || !this.noiseBuffer) return;
+    this.ensureRunning();
+
+    const now = this.ctx.currentTime;
+    const source = this.ctx.createBufferSource();
+    source.buffer = this.noiseBuffer;
+
+    // 천막 비닐의 얇은 울림을 흉내낸 밴드패스 필터
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    const centerFreq = 1600 + Math.random() * 1200;
+    filter.frequency.setValueAtTime(centerFreq, now);
+    filter.Q.setValueAtTime(4.0, now);
+
+    const gain = this.ctx.createGain();
+    const dropGain = 0.015 + Math.random() * 0.02;
+    gain.gain.setValueAtTime(dropGain, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    source.start(now);
+    source.stop(now + 0.045);
+  }
+
+  // 8. [비소리] 빗길 도로 위를 차가 쏴아아- 지나가는 물보라 마찰음
+  public playWetRoadCar() {
+    if (!this.ctx || this.isMuted || !this.noiseBuffer) return;
+    this.ensureRunning();
+
+    const now = this.ctx.currentTime;
+    const duration = 3.5;
+    const source = this.ctx.createBufferSource();
+    source.buffer = this.noiseBuffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(400, now);
+    filter.frequency.linearRampToValueAtTime(1400, now + duration * 0.45);
+    filter.frequency.linearRampToValueAtTime(350, now + duration);
+    filter.Q.setValueAtTime(2.0, now);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.022, now + duration * 0.45);
+    gain.gain.linearRampToValueAtTime(0.0001, now + duration);
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    source.start(now);
+    source.stop(now + duration);
+  }
+
+  // 9. [눈 밟는 소리] 눈 위를 걸을 때 나는 "뽀드득... 뽀득..." 소리
+  public playSnowCrunchSteps(stepCount: number = 2) {
+    if (!this.ctx || this.isMuted || !this.noiseBuffer) return;
+    this.ensureRunning();
+
+    const now = this.ctx.currentTime;
+    for (let i = 0; i < stepCount; i++) {
+      const stepTime = now + i * 0.55 + Math.random() * 0.08;
+      const duration = 0.16;
+
+      // 고주파 눈 마찰 노이즈
+      const source = this.ctx.createBufferSource();
+      source.buffer = this.noiseBuffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(2800 + Math.random() * 800, stepTime);
+      filter.Q.setValueAtTime(2.2, stepTime);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.001, stepTime);
+      gain.gain.linearRampToValueAtTime(0.045, stepTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, stepTime + duration);
+
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      source.start(stepTime);
+      source.stop(stepTime + duration);
+
+      // 저음 압축 펄스 (눈 뭉쳐지는 둔탁함)
+      const osc = this.ctx.createOscillator();
+      const oscGain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(180, stepTime);
+      osc.frequency.exponentialRampToValueAtTime(60, stepTime + 0.1);
+
+      oscGain.gain.setValueAtTime(0.03, stepTime);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, stepTime + 0.1);
+
+      osc.connect(oscGain);
+      oscGain.connect(this.ctx.destination);
+
+      osc.start(stepTime);
+      osc.stop(stepTime + 0.1);
+    }
+  }
+
+  // 10. [행인 발걸음] 포차 밖 길거리를 지나가는 사람의 발자국 소리
+  public playPedestrianFootstep(stepCount: number = 3) {
+    if (!this.ctx || this.isMuted || !this.noiseBuffer) return;
+    this.ensureRunning();
+
+    const now = this.ctx.currentTime;
+    for (let i = 0; i < stepCount; i++) {
+      const stepTime = now + i * 0.42;
+      const source = this.ctx.createBufferSource();
+      source.buffer = this.noiseBuffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(550 + Math.random() * 200, stepTime);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.001, stepTime);
+      gain.gain.linearRampToValueAtTime(0.018, stepTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, stepTime + 0.09);
+
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      source.start(stepTime);
+      source.stop(stepTime + 0.1);
+    }
+  }
+
+  // 11. [행인 웅성거림] 포차 밖에서 도란도란 나지막하게 이야기를 나누며 지나가는 소리
+  public playStreetMurmur() {
+    if (!this.ctx || this.isMuted) return;
+    this.ensureRunning();
+
+    const now = this.ctx.currentTime;
+    const duration = 2.4;
+
+    // 사람 목소리 포먼트 대역을 흉내낸 부드러운 톤 합성
+    const freqs = [420, 780, 1250];
+    freqs.forEach((baseFreq) => {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(baseFreq, now);
+      // 나지막하게 말하는 듯한 주파수 미세 요동
+      osc.frequency.linearRampToValueAtTime(baseFreq * (1 + (Math.random() * 0.08 - 0.04)), now + 1.2);
+      osc.frequency.linearRampToValueAtTime(baseFreq, now + duration);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(0.006, now + 0.8);
+      gain.gain.linearRampToValueAtTime(0.0001, now + duration);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + duration);
+    });
+  }
+
+  // 12. [주방 소음] 포차 조리대에서 들리는 안주 볶는 지글지글 소리
+  public playSizzleSound() {
+    if (!this.ctx || this.isMuted || !this.noiseBuffer) return;
+    this.ensureRunning();
+
+    const now = this.ctx.currentTime;
+    const duration = 2.0;
+    const source = this.ctx.createBufferSource();
+    source.buffer = this.noiseBuffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(3200, now);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.012, now + 0.3);
+    gain.gain.linearRampToValueAtTime(0.0001, now + duration);
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    source.start(now);
+    source.stop(now + duration);
+  }
+
+  // 13. [환경음 자동 스케줄러] 날씨와 감성에 맞춰 주변 소음들을 자연스럽게 재생
+  private startAmbientSoundScape() {
+    if (this.ambientInterval) clearInterval(this.ambientInterval);
+
+    this.ambientInterval = setInterval(() => {
+      if (!this.ctx || this.isMuted) return;
+      const now = Date.now();
+
+      if (this.currentMood === 'rainy') {
+        // 비 오는 날: 천막에 빗방울 토닥토닥 (빈번하게)
+        if (Math.random() < 0.65) {
+          this.playTarpRainDrop();
+        }
+        // 25~45초마다 빗길 지나가는 자동차
+        if (now - this.lastAmbientTimes.car > 28000 + Math.random() * 15000) {
+          this.lastAmbientTimes.car = now;
+          this.playWetRoadCar();
+        }
+        // 14~24초마다 우산 쓰고 지나가는 행인
+        if (now - this.lastAmbientTimes.pedestrian > 16000 + Math.random() * 10000) {
+          this.lastAmbientTimes.pedestrian = now;
+          this.playPedestrianFootstep(Math.floor(2 + Math.random() * 3));
+        }
+      } else if (this.currentMood === 'snowy') {
+        // 눈 오는 날: 5~10초마다 길거리 눈 밟는 뽀드득 소리
+        if (now - this.lastAmbientTimes.snowStep > 6000 + Math.random() * 5000) {
+          this.lastAmbientTimes.snowStep = now;
+          this.playSnowCrunchSteps(Math.floor(2 + Math.random() * 2));
+        }
+        // 16~28초마다 지나가는 행인
+        if (now - this.lastAmbientTimes.pedestrian > 18000 + Math.random() * 12000) {
+          this.lastAmbientTimes.pedestrian = now;
+          this.playPedestrianFootstep(2);
+        }
+      } else {
+        // 노을 / 별밤: 골목길 행인 발걸음 & 나지막한 웅성거림
+        if (now - this.lastAmbientTimes.pedestrian > 12000 + Math.random() * 8000) {
+          this.lastAmbientTimes.pedestrian = now;
+          this.playPedestrianFootstep(Math.floor(2 + Math.random() * 3));
+        }
+        if (now - this.lastAmbientTimes.murmur > 18000 + Math.random() * 12000) {
+          this.lastAmbientTimes.murmur = now;
+          this.playStreetMurmur();
+        }
+        if (now - this.lastAmbientTimes.sizzle > 22000 + Math.random() * 15000) {
+          this.lastAmbientTimes.sizzle = now;
+          this.playSizzleSound();
+        }
+      }
+    }, 280);
+  }
+
+  // 14. [플레이어 발걸음 연동] 아바타 이동 시 날씨별 발자국 소리
+  public playPlayerFootstep(mood?: string) {
+    if (!this.ctx || this.isMuted) return;
+    const targetMood = mood || this.currentMood;
+    if (targetMood === 'snowy') {
+      this.playSnowCrunchSteps(1);
+    } else {
+      this.playPedestrianFootstep(1);
+    }
   }
 
   private ensureRunning() {
