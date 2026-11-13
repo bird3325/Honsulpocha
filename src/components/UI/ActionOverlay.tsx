@@ -139,97 +139,179 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
         </div>
       ) : (
         /* 2. 일반 모드: 
-              - 모바일: 우측 사이드 세로 플로팅 도크 (right-3 bottom-6 flex-col) 로 배치하여 중앙 하단 전경 100% 시원하게 확보!
-              - PC 데스크톱: 기존대로 중앙 하단(bottom-6 md:flex-row)에 편안하게 정렬
+              - 모바일: 우측 사이드 세로 플로팅 도크 (fixed right-3 bottom-6 flex flex-col items-end) 로 배치하여 중앙 하단 전경 100% 시원하게 확보!
+              - PC 데스크톱: 화면 중앙 하단(fixed bottom-6 left-0 right-0 flex justify-center items-center)에 가로 바(flex-row)로 우아하게 정렬
         */
-        <div className="fixed right-3 bottom-6 md:bottom-6 md:left-0 md:right-0 md:flex md:justify-center md:items-center pointer-events-none z-30">
-          <div className="flex flex-col md:flex-row items-end md:items-center gap-2 pointer-events-auto p-1.5 md:px-3 md:py-1.5 bg-black/40 md:bg-black/45 backdrop-blur-xl rounded-2xl md:rounded-full border border-white/15 shadow-2xl">
-            {/* 의자에 앉기 버튼 (비착석 & 모바일 터치 환경에서만 노출) */}
-            {!isSitting && isMobile && (
-              <button
-                onClick={() => window.dispatchEvent(new CustomEvent('pocha_sit_nearest'))}
-                className="flex items-center gap-1.5 px-3 py-2 md:px-3.5 md:py-2 bg-blue-600/90 hover:bg-blue-600 active:scale-95 transition-all text-white font-medium rounded-xl md:rounded-full text-xs md:text-sm cursor-pointer shadow-lg w-full md:w-auto justify-center"
-                title="가장 가까운 빈 의자에 앉기"
-              >
-                <Armchair size={15} />
-                <span>앉기</span>
-              </button>
-            )}
+        isMobile ? (
+          <div
+            className="fixed right-3 pointer-events-none z-30"
+            style={{ bottom: 'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))' }}
+          >
+            <div className="flex flex-col items-end gap-2 pointer-events-auto p-1.5 bg-black/50 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl">
+              {/* 의자에 앉기 버튼 (비착석 & 모바일 터치 환경에서만 노출) */}
+              {!isSitting && (
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('pocha_sit_nearest'))}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-blue-600/90 hover:bg-blue-600 active:scale-95 transition-all text-white font-medium rounded-xl text-xs cursor-pointer shadow-lg w-full justify-center"
+                  title="가장 가까운 빈 의자에 앉기"
+                >
+                  <Armchair size={15} />
+                  <span>앉기</span>
+                </button>
+              )}
 
-            {/* 메뉴판에서 주문 완료 이후에만 노출되는 [한잔] 버튼 (술이 남아있을 때 클릭 가능) */}
-            {isOrdered && (
-              <button
-                onClick={handleCheers}
-                disabled={myAction === 'cheers' || myAction === 'pouring'}
-                className="flex items-center gap-1.5 px-3 py-2 md:px-3.5 md:py-2 bg-amber-500/90 hover:bg-amber-500 active:scale-95 transition-all text-white font-bold rounded-xl md:rounded-full text-xs md:text-sm cursor-pointer shadow-lg animate-pulse w-full md:w-auto justify-center"
-                title={hasRemainingDrink ? `시원하게 한잔 마시기 (남은 잔: ${currentTableServing?.drinkCount ?? 8}/8잔)` : `술 마시기`}
-              >
-                <Wine size={15} />
-                <span>한잔</span>
-              </button>
-            )}
+              {/* 메뉴판에서 주문 완료 이후에만 노출되는 [한잔] 버튼 (술이 남아있을 때 클릭 가능) */}
+              {isOrdered && (
+                <button
+                  onClick={handleCheers}
+                  disabled={myAction === 'cheers' || myAction === 'pouring'}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/90 hover:bg-amber-500 active:scale-95 transition-all text-white font-bold rounded-xl text-xs cursor-pointer shadow-lg animate-pulse w-full justify-center"
+                  title={hasRemainingDrink ? `시원하게 한잔 마시기 (남은 잔: ${currentTableServing?.drinkCount ?? 8}/8잔)` : `술 마시기`}
+                >
+                  <Wine size={15} />
+                  <span>한잔</span>
+                </button>
+              )}
 
-            {/* 메뉴판에서 주문 완료 이후에만 노출되는 [먹기] 버튼 (안주가 남아있을 때 클릭 가능) */}
-            {isOrdered && (
-              <button
-                onClick={handleEat}
-                className="flex items-center gap-1.5 px-3 py-2 md:px-3.5 md:py-2 bg-emerald-600/90 hover:bg-emerald-600 active:scale-95 transition-all text-white font-bold rounded-xl md:rounded-full text-xs md:text-sm cursor-pointer shadow-lg animate-pulse w-full md:w-auto justify-center"
-                title={hasRemainingFood ? `맛있는 안주 먹기 (남은 안주: ${currentTableServing?.foodCount ?? 8}/8입)` : `안주 먹기`}
-              >
-                <Utensils size={15} />
-                <span>먹기</span>
-              </button>
-            )}
+              {/* 메뉴판에서 주문 완료 이후에만 노출되는 [먹기] 버튼 (안주가 남아있을 때 클릭 가능) */}
+              {isOrdered && (
+                <button
+                  onClick={handleEat}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600/90 hover:bg-emerald-600 active:scale-95 transition-all text-white font-bold rounded-xl text-xs cursor-pointer shadow-lg animate-pulse w-full justify-center"
+                  title={hasRemainingFood ? `맛있는 안주 먹기 (남은 안주: ${currentTableServing?.foodCount ?? 8}/8입)` : `안주 먹기`}
+                >
+                  <Utensils size={15} />
+                  <span>먹기</span>
+                </button>
+              )}
 
-            {/* 메뉴 주문 시에만 노출되는 혼술 사색 오토모드 토글 버튼 */}
-            {isOrdered && (
-              <button
-                onClick={onToggleAutoMode}
-                className="flex items-center gap-1.5 px-3 py-2 md:px-3.5 md:py-2 bg-purple-950/85 hover:bg-purple-900/90 text-purple-200 border border-purple-400/30 rounded-xl md:rounded-full text-xs md:text-sm font-bold transition-all cursor-pointer active:scale-95 shadow-lg w-full md:w-auto justify-center"
-                title="메뉴 주문 후 혼자 조용히 사색하며 마시는 오토모드 ON/OFF"
-              >
-                <Sparkles size={15} className="text-amber-300" />
-                <span>사색</span>
-              </button>
-            )}
+              {/* 메뉴 주문 시에만 노출되는 혼술 사색 오토모드 토글 버튼 */}
+              {isOrdered && (
+                <button
+                  onClick={onToggleAutoMode}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-purple-950/85 hover:bg-purple-900/90 text-purple-200 border border-purple-400/30 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-lg w-full justify-center"
+                  title="메뉴 주문 후 혼자 조용히 사색하며 마시는 오토모드 ON/OFF"
+                >
+                  <Sparkles size={15} className="text-amber-300" />
+                  <span>사색</span>
+                </button>
+              )}
 
-            {/* 포차 메뉴판 버튼 */}
-            <button
-              onClick={onOpenMenu}
-              className="flex items-center gap-1.5 px-3 py-2 md:px-3.5 md:py-2 bg-indigo-600/90 hover:bg-indigo-500 active:scale-95 transition-all text-white font-medium rounded-xl md:rounded-full text-xs md:text-sm cursor-pointer shadow-lg w-full md:w-auto justify-center"
-            >
-              <UtensilsCrossed size={15} />
-              <span>메뉴판</span>
-            </button>
-
-            {/* 일어서기 버튼 (착석 시 표시) */}
-            {isSitting && (
+              {/* 포차 메뉴판 버튼 */}
               <button
-                onClick={onStandUp}
-                className="flex items-center gap-1.5 px-3 py-2 md:px-3.5 md:py-2 bg-gray-700/85 hover:bg-gray-600 active:scale-95 transition-all text-white font-medium rounded-xl md:rounded-full text-xs md:text-sm cursor-pointer shadow-lg w-full md:w-auto justify-center"
+                onClick={onOpenMenu}
+                className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600/90 hover:bg-indigo-500 active:scale-95 transition-all text-white font-medium rounded-xl text-xs cursor-pointer shadow-lg w-full justify-center"
               >
-                <LogOut size={15} />
-                <span>일어서기</span>
+                <UtensilsCrossed size={15} />
+                <span>메뉴판</span>
               </button>
-            )}
 
-            {/* 다 먹었을 때 또는 귀가 희망 시: [포차 나가기] 버튼 */}
-            {(isAllConsumed || isOrdered) && (
-              <button
-                onClick={onExitPocha}
-                className={`flex items-center gap-1.5 px-3 py-2 md:px-3.5 md:py-2 rounded-xl md:rounded-full text-xs md:text-sm font-bold transition-all cursor-pointer active:scale-95 shadow-lg w-full md:w-auto justify-center ${
-                  isAllConsumed
-                    ? 'bg-rose-600/95 hover:bg-rose-600 text-white animate-bounce shadow-rose-500/30'
-                    : 'bg-rose-950/85 hover:bg-rose-900/90 text-rose-200 border border-rose-400/30'
-                }`}
-                title="다 마시고 먹었으니 포차 입구 밖으로 걸어나가 귀가하기"
-              >
-                <DoorOpen size={15} />
-                <span>나가기</span>
-              </button>
-            )}
+              {/* 일어서기 버튼 (착석 시 표시) */}
+              {isSitting && (
+                <button
+                  onClick={onStandUp}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-gray-700/85 hover:bg-gray-600 active:scale-95 transition-all text-white font-medium rounded-xl text-xs cursor-pointer shadow-lg w-full justify-center"
+                >
+                  <LogOut size={15} />
+                  <span>일어서기</span>
+                </button>
+              )}
+
+              {/* 다 먹었을 때 또는 귀가 희망 시: [포차 나가기] 버튼 */}
+              {(isAllConsumed || isOrdered) && (
+                <button
+                  onClick={onExitPocha}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-lg w-full justify-center ${
+                    isAllConsumed
+                      ? 'bg-rose-600/95 hover:bg-rose-600 text-white animate-bounce shadow-rose-500/30'
+                      : 'bg-rose-950/85 hover:bg-rose-900/90 text-rose-200 border border-rose-400/30'
+                  }`}
+                  title="다 마시고 먹었으니 포차 입구 밖으로 걸어나가 귀가하기"
+                >
+                  <DoorOpen size={15} />
+                  <span>나가기</span>
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="fixed bottom-6 left-0 right-0 flex justify-center items-center pointer-events-none z-30">
+            <div className="flex flex-row items-center gap-2 pointer-events-auto px-3 py-1.5 bg-black/45 backdrop-blur-xl rounded-full border border-white/15 shadow-2xl">
+              {/* 메뉴판에서 주문 완료 이후에만 노출되는 [한잔] 버튼 (술이 남아있을 때 클릭 가능) */}
+              {isOrdered && (
+                <button
+                  onClick={handleCheers}
+                  disabled={myAction === 'cheers' || myAction === 'pouring'}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500/90 hover:bg-amber-500 active:scale-95 transition-all text-white font-bold rounded-full text-sm cursor-pointer shadow-lg animate-pulse"
+                  title={hasRemainingDrink ? `시원하게 한잔 마시기 (남은 잔: ${currentTableServing?.drinkCount ?? 8}/8잔)` : `술 마시기`}
+                >
+                  <Wine size={15} />
+                  <span>한잔</span>
+                </button>
+              )}
+
+              {/* 메뉴판에서 주문 완료 이후에만 노출되는 [먹기] 버튼 (안주가 남아있을 때 클릭 가능) */}
+              {isOrdered && (
+                <button
+                  onClick={handleEat}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600/90 hover:bg-emerald-600 active:scale-95 transition-all text-white font-bold rounded-full text-sm cursor-pointer shadow-lg animate-pulse"
+                  title={hasRemainingFood ? `맛있는 안주 먹기 (남은 안주: ${currentTableServing?.foodCount ?? 8}/8입)` : `안주 먹기`}
+                >
+                  <Utensils size={15} />
+                  <span>먹기</span>
+                </button>
+              )}
+
+              {/* 메뉴 주문 시에만 노출되는 혼술 사색 오토모드 토글 버튼 */}
+              {isOrdered && (
+                <button
+                  onClick={onToggleAutoMode}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-950/85 hover:bg-purple-900/90 text-purple-200 border border-purple-400/30 rounded-full text-sm font-bold transition-all cursor-pointer active:scale-95 shadow-lg"
+                  title="메뉴 주문 후 혼자 조용히 사색하며 마시는 오토모드 ON/OFF"
+                >
+                  <Sparkles size={15} className="text-amber-300" />
+                  <span>사색</span>
+                </button>
+              )}
+
+              {/* 포차 메뉴판 버튼 */}
+              <button
+                onClick={onOpenMenu}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600/90 hover:bg-indigo-500 active:scale-95 transition-all text-white font-medium rounded-full text-sm cursor-pointer shadow-lg"
+              >
+                <UtensilsCrossed size={15} />
+                <span>메뉴판</span>
+              </button>
+
+              {/* 일어서기 버튼 (착석 시 표시) */}
+              {isSitting && (
+                <button
+                  onClick={onStandUp}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-gray-700/85 hover:bg-gray-600 active:scale-95 transition-all text-white font-medium rounded-full text-sm cursor-pointer shadow-lg"
+                >
+                  <LogOut size={15} />
+                  <span>일어서기</span>
+                </button>
+              )}
+
+              {/* 다 먹었을 때 또는 귀가 희망 시: [포차 나가기] 버튼 */}
+              {(isAllConsumed || isOrdered) && (
+                <button
+                  onClick={onExitPocha}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-bold transition-all cursor-pointer active:scale-95 shadow-lg ${
+                    isAllConsumed
+                      ? 'bg-rose-600/95 hover:bg-rose-600 text-white animate-bounce shadow-rose-500/30'
+                      : 'bg-rose-950/85 hover:bg-rose-900/90 text-rose-200 border border-rose-400/30'
+                  }`}
+                  title="다 마시고 먹었으니 포차 입구 밖으로 걸어나가 귀가하기"
+                >
+                  <DoorOpen size={15} />
+                  <span>나가기</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )
       )}
 
       {/* 조작 안내 힌트 캡션 (PC 큰 화면에서만 하단에 은은하게 노출) */}

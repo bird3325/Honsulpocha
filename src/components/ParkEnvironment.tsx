@@ -40,8 +40,8 @@ export const ParkEnvironment: React.FC<ParkEnvironmentProps> = ({ weatherMood = 
         ctx.fillStyle = isSnow
           ? 'rgba(255, 255, 255, 0.22)'
           : isAutumn
-          ? (Math.random() > 0.5 ? '#4b3619' : '#5c4021')
-          : (Math.random() > 0.5 ? '#1f3d27' : '#0e1e13');
+            ? (Math.random() > 0.5 ? '#4b3619' : '#5c4021')
+            : (Math.random() > 0.5 ? '#1f3d27' : '#0e1e13');
         ctx.fillRect(x, y, 2 + Math.random() * 4, 3 + Math.random() * 5);
       }
     }
@@ -127,7 +127,7 @@ export const ParkEnvironment: React.FC<ParkEnvironmentProps> = ({ weatherMood = 
       </mesh>
 
       {/* 4. 실사 클래식 공원 가로등 (주물 기둥 + 투명 유리 갓 + 주황 웜톤 전구) */}
-      {[-18, -6, 6, 18].map((pz, idx) => (
+      {[-24, -16, -8, 0, 8, 16, 24].map((pz, idx) => (
         <group key={idx} position={[15.0, 0, pz]}>
           {/* 가로등 베이스 및 주물 기둥 */}
           <mesh position={[0, 0.3, 0]} castShadow>
@@ -151,11 +151,11 @@ export const ParkEnvironment: React.FC<ParkEnvironmentProps> = ({ weatherMood = 
             </mesh>
             {/* 내부 발광 전구 */}
             <mesh position={[0, 0, 0]}>
-              <sphereGeometry args={[0.1, 12, 12]} />
+              <sphereGeometry args={[0.14, 12, 12]} />
               <meshBasicMaterial color="#ffeaa7" />
             </mesh>
-            {/* 공원 바닥과 산책로를 비추는 따스한 가로등 빛 */}
-            <pointLight color="#ffeaa7" intensity={2.2} distance={15} decay={2} castShadow />
+            {/* 공원 바닥과 산책로를 환하게 비추는 가로등 조명 (밝기 대폭 보강) */}
+            <pointLight color="#ffeaa7" intensity={4.5} distance={22} decay={1.8} castShadow />
           </group>
         </group>
       ))}
@@ -254,8 +254,10 @@ export const ParkEnvironment: React.FC<ParkEnvironmentProps> = ({ weatherMood = 
         </group>
       ))}
 
-      {/* 7. 공원 쪽 아늑하고 평화로운 자연광 (Green/Warm Ambient) */}
-      <pointLight position={[22, 12, 0]} color="#2ed573" intensity={0.45} distance={38} />
+      {/* 7. 공원 쪽 아늑하고 평화로운 자연광 & 가로등 앰비언트 (공원 수목 및 산책로 밝기 대폭 보강) */}
+      <pointLight position={[20, 10, -12]} color="#fffae6" intensity={2.8} distance={42} decay={1.5} />
+      <pointLight position={[20, 10, 12]} color="#fffae6" intensity={2.8} distance={42} decay={1.5} />
+      <directionalLight position={[28, 18, 0]} color="#fff3cd" intensity={1.5} />
     </group>
   );
 };

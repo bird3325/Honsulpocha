@@ -82,26 +82,26 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
           fogColor: '#161f28',
           fogNear: 22,
           fogFar: 85,
-          ambientColor: '#a4b0be',
-          ambientIntensity: 1.05,
+          ambientColor: '#c5d1de',
+          ambientIntensity: 1.25,
           dirLightColor: '#ffffff',
-          dirLightIntensity: 1.25,
+          dirLightIntensity: 1.45,
           dirLightPos: [8, 14, 10] as [number, number, number],
           pochaLightColor: '#ff9f43',
-          pochaLightIntensity: 2.4, // 눈 오는 겨울밤 더욱 따스한 포차 오렌지빛
+          pochaLightIntensity: 2.8,
         };
       case 'autumn':
         return {
-          fogColor: '#1a1412', // 늦가을 밤의 그윽한 흑갈색 안개
+          fogColor: '#1a1412',
           fogNear: 22,
           fogFar: 90,
-          ambientColor: '#e58e26', // 가을 단풍과 낙엽을 비추는 따스한 앰버 톤
-          ambientIntensity: 1.0,
+          ambientColor: '#f39c12',
+          ambientIntensity: 1.2,
           dirLightColor: '#f39c12',
-          dirLightIntensity: 1.3,
+          dirLightIntensity: 1.5,
           dirLightPos: [9, 13, 8] as [number, number, number],
           pochaLightColor: '#e67e22',
-          pochaLightIntensity: 2.5,
+          pochaLightIntensity: 2.9,
         };
       case 'sunset':
         return {
@@ -109,25 +109,25 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
           fogNear: 25,
           fogFar: 95,
           ambientColor: '#e056fd',
-          ambientIntensity: 0.95,
+          ambientIntensity: 1.15,
           dirLightColor: '#ff7675',
-          dirLightIntensity: 1.35,
+          dirLightIntensity: 1.5,
           dirLightPos: [12, 7, 10] as [number, number, number],
           pochaLightColor: '#f0932b',
-          pochaLightIntensity: 2.1,
+          pochaLightIntensity: 2.5,
         };
       case 'starry':
         return {
           fogColor: '#070b14',
           fogNear: 28,
           fogFar: 110,
-          ambientColor: '#54a0ff',
-          ambientIntensity: 0.8,
+          ambientColor: '#70a1ff',
+          ambientIntensity: 1.05,
           dirLightColor: '#c7ecee',
-          dirLightIntensity: 1.05,
+          dirLightIntensity: 1.25,
           dirLightPos: [8, 14, 10] as [number, number, number],
           pochaLightColor: '#f9ca24',
-          pochaLightIntensity: 2.2,
+          pochaLightIntensity: 2.6,
         };
       case 'rainy':
       default:
@@ -135,13 +135,13 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
           fogColor: '#0e1117',
           fogNear: 24,
           fogFar: 90,
-          ambientColor: '#ff9f43', // 실제 포차 사진처럼 붉은 천막에서 난반사되는 따뜻하고 아늑한 오렌지빛 앰비언스
-          ambientIntensity: 0.92,
-          dirLightColor: '#ffeaa7',
-          dirLightIntensity: 1.2,
+          ambientColor: '#ffb169',
+          ambientIntensity: 1.25,
+          dirLightColor: '#fff2cc',
+          dirLightIntensity: 1.45,
           dirLightPos: [8, 14, 10] as [number, number, number],
           pochaLightColor: '#f39c12',
-          pochaLightIntensity: 2.6,
+          pochaLightIntensity: 3.2,
         };
     }
   }, [weatherMood]);
@@ -617,6 +617,7 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
           onSitChair={handleSitChair}
           mySeatedChairId={currentChair?.id || null}
           servedOrder={tableServings ? tableServings[table.id] : undefined}
+          isPouringAction={myAction === 'pouring'}
         />
       ))}
 

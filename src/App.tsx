@@ -482,7 +482,12 @@ export const App: React.FC = () => {
   return (
     <div
       className="relative w-screen h-screen bg-[#0b0c10] overflow-hidden select-none"
-      style={{ width: '100vw', height: '100vh', position: 'relative' }}
+      style={{
+        width: '100vw',
+        height: '100dvh',
+        minHeight: '-webkit-fill-available',
+        position: 'relative',
+      }}
     >
       {/* 1. 상단 감성 헤더 */}
       <Header

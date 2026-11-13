@@ -138,8 +138,9 @@ export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({ onMove }) => {
           handlePointerStart(t.clientX, t.clientY, t.identifier);
         }
       }}
-      className="fixed left-4 bottom-4 z-40 select-none touch-none flex items-center justify-center cursor-pointer pointer-events-auto"
+      className="fixed left-4 z-40 select-none touch-none flex items-center justify-center cursor-pointer pointer-events-auto"
       style={{
+        bottom: 'max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))',
         width: '112px',
         height: '112px',
         borderRadius: '50%',

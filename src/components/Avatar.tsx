@@ -458,6 +458,17 @@ export const Avatar: React.FC<AvatarProps> = ({
           </mesh>
         </group>
       </group>
+
+      {/* 내 캐릭터 전용 소프트 스포트라이트 (모바일 및 어두운 야경에서도 캐릭터가 묻히지 않고 또렷하게 보이도록 비추는 감성 조명) */}
+      {isMe && (
+        <pointLight
+          position={[0, 1.8, 0.6]}
+          color="#fff6e5"
+          intensity={1.8}
+          distance={4.5}
+          decay={1.8}
+        />
+      )}
     </group>
   );
 };

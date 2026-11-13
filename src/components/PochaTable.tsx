@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { ChairSlot } from '../types';
 import { RealisticPochaFood } from './RealisticPochaFood';
@@ -21,6 +21,7 @@ interface PochaTableProps {
   mySeatedChairId: string | null;
   tableColor?: string;
   servedOrder?: TableServing;
+  isPouringAction?: boolean;
 }
 
 export const PochaTable: React.FC<PochaTableProps> = ({
@@ -32,11 +33,39 @@ export const PochaTable: React.FC<PochaTableProps> = ({
   mySeatedChairId,
   tableColor = '#d63031',
   servedOrder,
+  isPouringAction = false,
 }) => {
   const [hoveredChair, setHoveredChair] = useState<string | null>(null);
 
   const hasDrink = !!servedOrder?.hasDrink;
   const hasFood = !!servedOrder?.hasFood;
+
+  // 내가 앉은 의자의 각도(rotation) 파악 -> 캐릭터 바로 앞으로 술병과 잔, 안주를 배치
+  const myChair = chairSlots.find((c) => c.id === mySeatedChairId);
+  const myTableAngle = myChair ? myChair.rotation : 0;
+  // 캐릭터가 앉은 쪽에서 테이블 중심 쪽을 바라보는 전방 각도 벡터
+  // 캐릭터는 테이블을 바라보고 있으므로, 캐릭터의 전방은 chair.rotation 방향
+  // 캐릭터 쪽 테이블 모서리 좌표 (반지름 약 0.3m 지점)
+  // c1: z = tz - 0.85 (rot: 0) -> 캐릭터 앞 테이블 지점: x=0, z=-0.28
+  // c2: x = tx - 0.85 (rot: PI/2) -> 캐릭터 앞 테이블 지점: x=-0.28, z=0
+  // c3: z = tz + 0.85 (rot: PI) -> 캐릭터 앞 테이블 지점: x=0, z=0.28
+  // c4: x = tx + 0.85 (rot: -PI/2) -> 캐릭터 앞 테이블 지점: x=0.28, z=0
+  const characterForwardVec = useMemo(() => {
+    if (!myChair) {
+      return { frontX: 0, frontZ: 0.26, perpX: 0.14, perpZ: 0 };
+    }
+    // chair.position -> table.position 방향
+    const dx = position[0] - myChair.position[0];
+    const dz = position[2] - myChair.position[2];
+    const len = Math.hypot(dx, dz) || 1;
+    // 캐릭터 바로 앞 테이블 지점 (테이블 중심에서 캐릭터 쪽으로 약 0.26m)
+    const frontX = -(dx / len) * 0.26;
+    const frontZ = -(dz / len) * 0.26;
+    // 전방 기준 좌/우 수직 벡터
+    const perpX = -(dz / len) * 0.14;
+    const perpZ = (dx / len) * 0.14;
+    return { frontX, frontZ, perpX, perpZ };
+  }, [myChair, position]);
 
   // 실제 사진 속 생생한 포차 빨강/파랑 색상
   const isRedTable = tableColor === '#d63031';
@@ -117,20 +146,30 @@ export const PochaTable: React.FC<PochaTableProps> = ({
 
       {/* 2. 테이블 위 주문 서빙 소품 (실제 주문한 메뉴와 100% 동일한 3D 음식 모델) */}
       <group position={[0, 0.76, 0]}>
-        {/* A. 주류 서빙 완료 시 나타나는 술병과 잔 (혼자서 한 병 기준 8잔에 맞춘 점진적 소비 스케일) */}
-        {hasDrink && servedOrder?.drinkId && (
+        {/* A. 주류 서빙 완료 시 나타나는 술병과 잔 (캐릭터가 앉은 바로 앞으로 배치, 술 따르는 중(isPouringAction)일 때는 테이블 병 숨김) */}
+        {hasDrink && servedOrder?.drinkId && (!isPouringAction || !mySeatedChairId) && (
           <RealisticPochaFood
             itemId={servedOrder.drinkId}
-            position={[-0.15, 0, 0.08]}
+            position={
+              myChair
+                ? [characterForwardVec.frontX - characterForwardVec.perpX, 0, characterForwardVec.frontZ - characterForwardVec.perpZ]
+                : [-0.15, 0, 0.08]
+            }
+            rotation={myChair ? [0, myChair.rotation + Math.PI, 0] : [0, 0, 0]}
             scale={0.7 + ((servedOrder.drinkCount ?? 8) / 8) * 0.3}
           />
         )}
 
-        {/* B. 안주 서빙 완료 시 나타나는 정갈한 음식 요리 접시/냄비/뚝배기 (메뉴 한 개 기준 8입 점진적 소비) */}
+        {/* B. 안주 서빙 완료 시 나타나는 정갈한 음식 요리 접시/냄비/뚝배기 (캐릭터 앞 테이블 중앙에 먹음직스럽게 배치) */}
         {hasFood && servedOrder?.foodId && (
           <RealisticPochaFood
             itemId={servedOrder.foodId}
-            position={[0.08, 0, -0.04]}
+            position={
+              myChair
+                ? [characterForwardVec.frontX * 0.7 + characterForwardVec.perpX * 0.6, 0, characterForwardVec.frontZ * 0.7 + characterForwardVec.perpZ * 0.6]
+                : [0.08, 0, -0.04]
+            }
+            rotation={myChair ? [0, myChair.rotation, 0] : [0, 0, 0]}
             scale={0.6 + ((servedOrder.foodCount ?? 8) / 8) * 0.4}
           />
         )}
