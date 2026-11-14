@@ -410,17 +410,11 @@ export const NightCityBuildings: React.FC<NightCityBuildingsProps> = ({ weatherM
               <meshStandardMaterial color="#141a24" roughness={0.7} />
             </mesh>
 
-            {/* 옥상 항공장애등 (Red Beacon Light) */}
+            {/* 옥상 항공장애등 (Red Beacon Light: 자체 발광 매질) */}
             <mesh position={[0, b.height + 3.1, 0]}>
               <sphereGeometry args={[0.22, 12, 12]} />
               <meshBasicMaterial color="#ff3838" />
             </mesh>
-            <pointLight
-              position={[0, b.height + 3.2, 0]}
-              color="#ff3838"
-              intensity={0.65}
-              distance={15}
-            />
 
             {/* 옥상 대형 네온 루프 간판 (Roof Billboard Sign) */}
             {b.roofSign && signObj?.roofTex && (
@@ -440,17 +434,10 @@ export const NightCityBuildings: React.FC<NightCityBuildingsProps> = ({ weatherM
                   <planeGeometry args={[b.width * 0.7, 1.8]} />
                   <meshBasicMaterial map={signObj.roofTex} />
                 </mesh>
-                {/* 간판에서 뿜어져 나오는 도시 빛 */}
-                <pointLight
-                  position={[0, 0, 1.5]}
-                  color={b.roofSign.color}
-                  intensity={1.2}
-                  distance={16}
-                />
               </group>
             )}
 
-            {/* 외벽 돌출 네온 간판 (Korean Wall Neon Sign) */}
+            {/* 외벽 돌출 네온 간판 (Korean Wall Neon Sign: 자체 발광 텍스처) */}
             {b.hasNeonSign && signObj?.wallTex && (
               <group
                 position={[
@@ -476,13 +463,6 @@ export const NightCityBuildings: React.FC<NightCityBuildingsProps> = ({ weatherM
                   />
                   <meshBasicMaterial map={signObj.wallTex} transparent />
                 </mesh>
-                {/* 네온 발광 포인트 라이트 (포차 밖 골목을 감성적으로 비춤) */}
-                <pointLight
-                  position={[0, 0, 0.8]}
-                  color={b.neonColor || '#ff7675'}
-                  intensity={1.5}
-                  distance={12}
-                />
               </group>
             )}
           </group>
@@ -508,14 +488,6 @@ export const NightCityBuildings: React.FC<NightCityBuildingsProps> = ({ weatherM
           </mesh>
         </group>
       ))}
-
-      {/* 3. 비 오는 밤 도시의 대기 발광 (City Sky Glow) */}
-      <pointLight
-        position={[0, 35, 0]}
-        color={weatherMood === 'snowy' ? '#74b9ff' : weatherMood === 'sunset' ? '#e056fd' : '#0984e3'}
-        intensity={0.65}
-        distance={95}
-      />
     </group>
   );
 };

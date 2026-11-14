@@ -23,6 +23,7 @@ console.log(`[혼술포차] 멀티플레이어 서버가 포트 ${PORT}에서 �
 
 wss.on('connection', (ws) => {
   const playerId = 'user_' + Math.random().toString(36).substring(2, 9);
+  ws.playerId = playerId;
   const nickname = getRandomItem(NICKNAMES) + ' #' + Math.floor(Math.random() * 900 + 100);
   const color = getRandomItem(SHIRT_COLORS);
   const characterType = 'salaryman';
@@ -32,7 +33,7 @@ wss.on('connection', (ws) => {
     nickname,
     color,
     characterType,
-    position: [Math.random() * 0.8 - 0.4, 0, 0.6 + Math.random() * 0.3],
+    position: [0, 0, 4.6],
     rotation: Math.PI,
     action: 'idle',
     seatedChairId: null,
@@ -89,19 +90,19 @@ wss.on('connection', (ws) => {
 function broadcast(data, excludeId) {
   const payload = JSON.stringify(data);
   wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
+    if (client.readyState === WebSocket.OPEN && (!excludeId || client.playerId !== excludeId)) {
       client.send(payload);
     }
   });
 }
 
-// 30초 주기 타임아웃 정리
+// 10초 주기 타임아웃 정리 (유령 플레이어 즉시 정리)
 setInterval(() => {
   const now = Date.now();
   for (const [id, player] of players.entries()) {
-    if (now - player.lastUpdate > 60000) {
+    if (now - player.lastUpdate > 20000) {
       players.delete(id);
       broadcast({ type: 'player_left', id });
     }
   }
-}, 30000);
+}, 10000);

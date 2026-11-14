@@ -15,8 +15,8 @@ interface ActionOverlayProps {
   servingToast?: string | null;
   hasOrderedMenu?: boolean;
   hasOrderedSoju?: boolean;
-  onConsumeDrink?: () => { count: number; isDone: boolean };
-  onConsumeFood?: () => { count: number; isDone: boolean };
+  onConsumeDrink?: () => { count: number; isDone: boolean; drinkId?: string };
+  onConsumeFood?: () => { count: number; isDone: boolean; foodId?: string };
   currentTableServing?: TableServing;
   isAutoMode?: boolean;
   onToggleAutoMode?: () => void;
@@ -44,22 +44,41 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
 }) => {
   const isMobile = useIsMobile();
   const isSitting = !!currentChair;
-  // 테이블에 아직 소비되지 않은 술 또는 음식이 남아있거나 주문 직후일 때 액션 활성화
-  const hasRemainingDrink = currentTableServing?.hasDrink ?? false;
-  const hasRemainingFood = currentTableServing?.hasFood ?? false;
+  // 테이블에 아직 소비되지 않은 술 또는 음식이 남아있거나 주문 직후일 때 액션 활성화 (복수 메뉴 지원)
+  const hasRemainingDrink =
+    currentTableServing?.drinks && currentTableServing.drinks.length > 0
+      ? currentTableServing.drinks.some((d) => d.drinkCount > 0)
+      : (currentTableServing?.hasDrink ?? false);
+  const hasRemainingFood =
+    currentTableServing?.foods && currentTableServing.foods.length > 0
+      ? currentTableServing.foods.some((f) => f.foodCount > 0)
+      : (currentTableServing?.hasFood ?? false);
   const isOrdered = hasOrderedMenu || hasOrderedSoju || hasRemainingDrink || hasRemainingFood;
   // 술과 안주를 모두 비웠는지 여부
   const isAllConsumed = (hasOrderedMenu || hasOrderedSoju) && !hasRemainingDrink && !hasRemainingFood;
 
+  // 현재 테이블 위 첫 번째 활성 음료/주류 판별 (음료는 3모금, 주류는 8잔)
+  const activeDrinkItem = currentTableServing?.drinks?.find((d) => d.drinkCount > 0);
+  const activeDrinkId = activeDrinkItem ? activeDrinkItem.drinkId : currentTableServing?.drinkId;
+  const isBeverage = activeDrinkId?.startsWith('bev_') ?? false;
+  const maxDrinkCount = isBeverage ? 3 : 8;
+  const drinkUnit = isBeverage ? '모금' : '잔';
+  const drinkActionName = isBeverage ? '한모금' : '한잔';
+  const activeDrinkCount = activeDrinkItem ? activeDrinkItem.drinkCount : (currentTableServing?.drinkCount ?? maxDrinkCount);
+
+  // 현재 테이블 위 첫 번째 활성 안주 판별
+  const activeFoodItem = currentTableServing?.foods?.find((f) => f.foodCount > 0);
+  const activeFoodCount = activeFoodItem ? activeFoodItem.foodCount : (currentTableServing?.foodCount ?? 8);
+
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
-  // 1. 소주/술 한잔 따르고 홀짝 마시기 & 점진적 소비 로직
+  // 1. 음료/주류 따르고 홀짝 마시기 & 점진적 소비 로직
   const handleCheers = () => {
-    // 1단계: 술병을 기울여 잔에 채우는 모션
+    // 1단계: 병/캔을 기울여 잔에 채우는 모션
     soundManager.playPouringSound();
     setMyAction('pouring');
     broadcastAction('pouring');
-    setActionFeedback('🍶 쪼르르... 잔에 술을 정성스레 채웁니다.');
+    setActionFeedback(isBeverage ? '🥤 콸콸... 얼음잔에 시원한 음료를 따릅니다.' : '🍶 쪼르르... 잔에 술을 정성스레 채웁니다.');
 
     // 2단계: 잔을 들어 시원하게 털어 넣기
     setTimeout(() => {
@@ -69,13 +88,25 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
 
       if (onConsumeDrink) {
         const res = onConsumeDrink();
+        const isCurrentBev = (res.drinkId || activeDrinkId)?.startsWith('bev_') ?? false;
+        const currentUnit = isCurrentBev ? '모금' : '잔';
+        const currentMax = isCurrentBev ? 3 : 8;
+
         if (res.isDone) {
-          setActionFeedback('🍶 캬~ 술병을 깨끗하게 다 비웠습니다! [메뉴판]에서 술을 더 주문해보세요!');
+          setActionFeedback(
+            isCurrentBev
+              ? '🥤 캬~ 시원한 음료를 다 비웠습니다! [메뉴판]에서 더 주문해보세요!'
+              : '🍶 캬~ 술병을 깨끗하게 다 비웠습니다! [메뉴판]에서 술을 더 주문해보세요!'
+          );
         } else {
-          setActionFeedback(`🍶 캬~ 시원하게 한잔! 달다 달아~ (남은 술: ${res.count}/8잔)`);
+          setActionFeedback(
+            isCurrentBev
+              ? `🥤 캬~ 시원하고 톡 쏘는 한 모금! (남은 음료: ${res.count}/${currentMax}${currentUnit})`
+              : `🍶 캬~ 시원하게 한잔! 달다 달아~ (남은 술: ${res.count}/${currentMax}${currentUnit})`
+          );
         }
       } else {
-        setActionFeedback('🍶 캬~ 시원하게 소주 한잔 비웠습니다!');
+        setActionFeedback(isBeverage ? '🥤 캬~ 시원하게 음료 한 모금 비웠습니다!' : '🍶 캬~ 시원하게 소주 한잔 비웠습니다!');
       }
 
       setTimeout(() => {
@@ -160,16 +191,16 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
                 </button>
               )}
 
-              {/* 메뉴판에서 주문 완료 이후에만 노출되는 [한잔] 버튼 (술이 남아있을 때 클릭 가능) */}
+              {/* 메뉴판에서 주문 완료 이후에만 노출되는 [한잔/한모금] 버튼 (음료는 3모금, 술은 8잔) */}
               {isOrdered && (
                 <button
                   onClick={handleCheers}
                   disabled={myAction === 'cheers' || myAction === 'pouring'}
                   className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/90 hover:bg-amber-500 active:scale-95 transition-all text-white font-bold rounded-xl text-xs cursor-pointer shadow-lg animate-pulse w-full justify-center"
-                  title={hasRemainingDrink ? `시원하게 한잔 마시기 (남은 잔: ${currentTableServing?.drinkCount ?? 8}/8잔)` : `술 마시기`}
+                  title={hasRemainingDrink ? `시원하게 ${drinkActionName} 마시기 (남은 ${isBeverage ? '음료' : '잔'}: ${activeDrinkCount}/${maxDrinkCount}${drinkUnit})` : `${isBeverage ? '음료' : '술'} 마시기`}
                 >
                   <Wine size={15} />
-                  <span>한잔</span>
+                  <span>{drinkActionName}</span>
                 </button>
               )}
 
@@ -178,7 +209,7 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
                 <button
                   onClick={handleEat}
                   className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600/90 hover:bg-emerald-600 active:scale-95 transition-all text-white font-bold rounded-xl text-xs cursor-pointer shadow-lg animate-pulse w-full justify-center"
-                  title={hasRemainingFood ? `맛있는 안주 먹기 (남은 안주: ${currentTableServing?.foodCount ?? 8}/8입)` : `안주 먹기`}
+                  title={hasRemainingFood ? `맛있는 안주 먹기 (남은 안주: ${activeFoodCount}/8입)` : `안주 먹기`}
                 >
                   <Utensils size={15} />
                   <span>먹기</span>
@@ -197,14 +228,16 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
                 </button>
               )}
 
-              {/* 포차 메뉴판 버튼 */}
-              <button
-                onClick={onOpenMenu}
-                className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600/90 hover:bg-indigo-500 active:scale-95 transition-all text-white font-medium rounded-xl text-xs cursor-pointer shadow-lg w-full justify-center"
-              >
-                <UtensilsCrossed size={15} />
-                <span>메뉴판</span>
-              </button>
+              {/* 포차 메뉴판 버튼 (의자에 앉은 후에만 노출) */}
+              {isSitting && (
+                <button
+                  onClick={onOpenMenu}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600/90 hover:bg-indigo-500 active:scale-95 transition-all text-white font-medium rounded-xl text-xs cursor-pointer shadow-lg w-full justify-center"
+                >
+                  <UtensilsCrossed size={15} />
+                  <span>메뉴판</span>
+                </button>
+              )}
 
               {/* 일어서기 버튼 (착석 시 표시) */}
               {isSitting && (
@@ -237,16 +270,16 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
         ) : (
           <div className="fixed bottom-6 left-0 right-0 flex justify-center items-center pointer-events-none z-30">
             <div className="flex flex-row items-center gap-2 pointer-events-auto px-3 py-1.5 bg-black/45 backdrop-blur-xl rounded-full border border-white/15 shadow-2xl">
-              {/* 메뉴판에서 주문 완료 이후에만 노출되는 [한잔] 버튼 (술이 남아있을 때 클릭 가능) */}
+              {/* 메뉴판에서 주문 완료 이후에만 노출되는 [한잔/한모금] 버튼 (음료는 3모금, 술은 8잔) */}
               {isOrdered && (
                 <button
                   onClick={handleCheers}
                   disabled={myAction === 'cheers' || myAction === 'pouring'}
                   className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500/90 hover:bg-amber-500 active:scale-95 transition-all text-white font-bold rounded-full text-sm cursor-pointer shadow-lg animate-pulse"
-                  title={hasRemainingDrink ? `시원하게 한잔 마시기 (남은 잔: ${currentTableServing?.drinkCount ?? 8}/8잔)` : `술 마시기`}
+                  title={hasRemainingDrink ? `시원하게 ${drinkActionName} 마시기 (남은 ${isBeverage ? '음료' : '잔'}: ${activeDrinkCount}/${maxDrinkCount}${drinkUnit})` : `${isBeverage ? '음료' : '술'} 마시기`}
                 >
                   <Wine size={15} />
-                  <span>한잔</span>
+                  <span>{drinkActionName}</span>
                 </button>
               )}
 
@@ -255,7 +288,7 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
                 <button
                   onClick={handleEat}
                   className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600/90 hover:bg-emerald-600 active:scale-95 transition-all text-white font-bold rounded-full text-sm cursor-pointer shadow-lg animate-pulse"
-                  title={hasRemainingFood ? `맛있는 안주 먹기 (남은 안주: ${currentTableServing?.foodCount ?? 8}/8입)` : `안주 먹기`}
+                  title={hasRemainingFood ? `맛있는 안주 먹기 (남은 안주: ${activeFoodCount}/8입)` : `안주 먹기`}
                 >
                   <Utensils size={15} />
                   <span>먹기</span>
@@ -274,14 +307,16 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
                 </button>
               )}
 
-              {/* 포차 메뉴판 버튼 */}
-              <button
-                onClick={onOpenMenu}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600/90 hover:bg-indigo-500 active:scale-95 transition-all text-white font-medium rounded-full text-sm cursor-pointer shadow-lg"
-              >
-                <UtensilsCrossed size={15} />
-                <span>메뉴판</span>
-              </button>
+              {/* 포차 메뉴판 버튼 (의자에 앉은 후에만 노출) */}
+              {isSitting && (
+                <button
+                  onClick={onOpenMenu}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600/90 hover:bg-indigo-500 active:scale-95 transition-all text-white font-medium rounded-full text-sm cursor-pointer shadow-lg"
+                >
+                  <UtensilsCrossed size={15} />
+                  <span>메뉴판</span>
+                </button>
+              )}
 
               {/* 일어서기 버튼 (착석 시 표시) */}
               {isSitting && (

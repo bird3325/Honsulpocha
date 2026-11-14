@@ -1,7 +1,7 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
-import { Text, Billboard } from '@react-three/drei';
+import { Text, Billboard, Html } from '@react-three/drei';
 import { PlayerAction } from '../types';
 import { soundManager } from './AudioController';
 
@@ -17,6 +17,7 @@ interface AvatarProps {
   isSeated?: boolean; // 의자 착석 여부 (액션과 독립적으로 실제 착석 상태 유지)
   isMe?: boolean;
   autoThought?: string | null; // 오토모드 사색 독백 말풍선
+  drinkId?: string; // 주문/서빙된 음료/주류 ID (예: 'bev_cola', 'bev_cider', 'soju_chamisul')
 }
 
 export const Avatar: React.FC<AvatarProps> = ({
@@ -30,8 +31,18 @@ export const Avatar: React.FC<AvatarProps> = ({
   isSeated,
   isMe = false,
   autoThought = null,
+  drinkId,
 }) => {
+  const isBeverage = drinkId ? (drinkId.startsWith('bev_') || drinkId === 'bev_cola' || drinkId === 'bev_cider') : false;
+  const isCola = drinkId === 'bev_cola';
   const groupRef = useRef<THREE.Group>(null);
+  const portalRef = useRef<HTMLElement>(typeof document !== 'undefined' ? document.body : (null as any));
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      portalRef.current = document.body;
+    }
+  }, []);
   const handRef = useRef<THREE.Group>(null);
   const leftHandRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
@@ -241,24 +252,57 @@ export const Avatar: React.FC<AvatarProps> = ({
           </mesh>
         )}
 
-        {/* 오토모드 혼술 사색 독백 말풍선 */}
+        {/* 오토모드 혼술 사색 독백 풍선글 (상단 바 위에 노출되도록 Html 포털 렌더링) */}
         {isMe && autoThought && (
-          <group position={[0, 0.42, 0]}>
-            <mesh position={[0, 0, -0.01]}>
-              <planeGeometry args={[Math.max(1.4, autoThought.length * 0.11), 0.28]} />
-              <meshBasicMaterial color="#1e272e" transparent opacity={0.88} />
-            </mesh>
-            <Text
-              fontSize={0.11}
-              color="#ffeaa7"
-              anchorX="center"
-              anchorY="middle"
-              outlineWidth={0.015}
-              outlineColor="#000000"
+          <Html
+            position={[0, 0.48, 0]}
+            center
+            portal={portalRef}
+            zIndexRange={[100, 40]}
+            style={{
+              pointerEvents: 'none',
+              zIndex: 40,
+            }}
+          >
+            <div
+              style={{
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '7px 15px',
+                backgroundColor: 'rgba(26, 32, 44, 0.94)',
+                backdropFilter: 'blur(8px)',
+                border: '1.5px solid rgba(255, 234, 167, 0.45)',
+                borderRadius: '16px',
+                color: '#ffeaa7',
+                fontSize: '13px',
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.75)',
+                pointerEvents: 'none',
+                userSelect: 'none',
+                lineHeight: 1.4,
+              }}
             >
-              💭 {autoThought}
-            </Text>
-          </group>
+              <span style={{ fontSize: '14px' }}>💭</span>
+              <span>{autoThought}</span>
+              {/* 말풍선 아래 꼬리표 */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '-6px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: 0,
+                  height: 0,
+                  borderLeft: '6px solid transparent',
+                  borderRight: '6px solid transparent',
+                  borderTop: '6px solid rgba(26, 32, 44, 0.94)',
+                }}
+              />
+            </div>
+          </Html>
         )}
       </Billboard>
 
@@ -381,45 +425,114 @@ export const Avatar: React.FC<AvatarProps> = ({
             <meshStandardMaterial color={color} roughness={0.5} />
           </mesh>
 
-          {/* A. 술 따르기 (action === 'pouring'): 오른손에 쥐어진 초록 소주병 */}
+          {/* A. 음료/술 따르기 (action === 'pouring'): 음료일 때는 캔, 주류일 때는 초록 소주병 */}
           {action === 'pouring' && (
             <group position={[0, 0.08, 0.08]} rotation={[Math.PI / 2, 0, 0]}>
-              {/* 초록 소주병 본체 */}
-              <mesh position={[0, 0, 0]}>
-                <cylinderGeometry args={[0.03, 0.034, 0.15, 16]} />
-                <meshStandardMaterial color="#00a86b" roughness={0.15} metalness={0.1} transparent opacity={0.92} />
-              </mesh>
-              {/* 병목 */}
-              <mesh position={[0, 0.1, 0]}>
-                <cylinderGeometry args={[0.012, 0.026, 0.055, 16]} />
-                <meshStandardMaterial color="#00a86b" roughness={0.15} transparent opacity={0.92} />
-              </mesh>
-              {/* 병 주둥이 & 뚜껑 */}
-              <mesh position={[0, 0.132, 0]}>
-                <cylinderGeometry args={[0.013, 0.013, 0.01, 12]} />
-                <meshStandardMaterial color="#27ae60" metalness={0.7} />
-              </mesh>
-              {/* 하얀 사각 소주 라벨 */}
-              <mesh position={[0, 0, 0]}>
-                <cylinderGeometry args={[0.033, 0.033, 0.06, 16]} />
-                <meshStandardMaterial color="#ffffff" roughness={0.4} />
-              </mesh>
+              {isBeverage ? (
+                /* 음료 캔 (콜라: 빨강, 사이다: 청록) */
+                <group>
+                  <mesh position={[0, 0, 0]}>
+                    <cylinderGeometry args={[0.032, 0.032, 0.12, 16]} />
+                    <meshStandardMaterial color={isCola ? '#d63031' : '#00b894'} roughness={0.3} metalness={0.4} />
+                  </mesh>
+                  {/* 상단 알루미늄 림 및 캔 뚜껑 */}
+                  <mesh position={[0, 0.061, 0]}>
+                    <cylinderGeometry args={[0.03, 0.031, 0.006, 16]} />
+                    <meshStandardMaterial color="#dfe6e9" metalness={0.9} roughness={0.2} />
+                  </mesh>
+                  {/* 캔 따개 탭 */}
+                  <mesh position={[0.008, 0.064, 0]}>
+                    <boxGeometry args={[0.012, 0.002, 0.016]} />
+                    <meshStandardMaterial color="#b2bec3" metalness={0.9} />
+                  </mesh>
+                  {/* 캔 중앙 브랜드 라벨 띠 */}
+                  <mesh position={[0, 0, 0]}>
+                    <cylinderGeometry args={[0.0323, 0.0323, 0.04, 16]} />
+                    <meshStandardMaterial color="#ffffff" roughness={0.4} />
+                  </mesh>
+                </group>
+              ) : (
+                /* 초록 소주병 본체 */
+                <group>
+                  <mesh position={[0, 0, 0]}>
+                    <cylinderGeometry args={[0.03, 0.034, 0.15, 16]} />
+                    <meshStandardMaterial color="#00a86b" roughness={0.15} metalness={0.1} transparent opacity={0.92} />
+                  </mesh>
+                  {/* 병목 */}
+                  <mesh position={[0, 0.1, 0]}>
+                    <cylinderGeometry args={[0.012, 0.026, 0.055, 16]} />
+                    <meshStandardMaterial color="#00a86b" roughness={0.15} transparent opacity={0.92} />
+                  </mesh>
+                  {/* 병 주둥이 & 뚜껑 */}
+                  <mesh position={[0, 0.132, 0]}>
+                    <cylinderGeometry args={[0.013, 0.013, 0.01, 12]} />
+                    <meshStandardMaterial color="#27ae60" metalness={0.7} />
+                  </mesh>
+                  {/* 하얀 사각 소주 라벨 */}
+                  <mesh position={[0, 0, 0]}>
+                    <cylinderGeometry args={[0.033, 0.033, 0.06, 16]} />
+                    <meshStandardMaterial color="#ffffff" roughness={0.4} />
+                  </mesh>
+                </group>
+              )}
             </group>
           )}
 
-          {/* B. 술 마시기 & 착석 (drinking, cheers, 평상시): 오른손 소주잔 */}
+          {/* B. 마시기 & 착석 (drinking, cheers, 평상시): 음료일 때는 얼음 빨대 컵, 주류일 때는 소주잔 */}
           {(action === 'cheers' || action === 'drinking' || (isSitting && action !== 'eating' && action !== 'pouring')) && (
             <group position={[0, 0.04, 0.05]}>
-              <mesh>
-                <cylinderGeometry args={[0.024, 0.018, 0.05, 16]} />
-                <meshStandardMaterial
-                  color="#dff9fb"
-                  transparent
-                  opacity={0.8}
-                  roughness={0.1}
-                  metalness={0.2}
-                />
-              </mesh>
+              {isBeverage ? (
+                /* 시원한 얼음 빨대 음료컵 */
+                <group>
+                  {/* 투명 컵 본체 */}
+                  <mesh>
+                    <cylinderGeometry args={[0.032, 0.024, 0.075, 16]} />
+                    <meshStandardMaterial
+                      color="#eaf2f8"
+                      transparent
+                      opacity={0.45}
+                      roughness={0.1}
+                      metalness={0.1}
+                    />
+                  </mesh>
+                  {/* 컵 속 음료 액체 (콜라: 진한 갈색 #2c1a0e, 사이다: 맑은 탄산수 #dff9fb) */}
+                  <mesh position={[0, -0.005, 0]}>
+                    <cylinderGeometry args={[0.03, 0.022, 0.064, 16]} />
+                    <meshStandardMaterial
+                      color={isCola ? '#2c1a0e' : '#dff9fb'}
+                      transparent
+                      opacity={isCola ? 0.95 : 0.75}
+                      roughness={0.2}
+                    />
+                  </mesh>
+                  {/* 동동 뜬 각얼음 큐브 2개 */}
+                  <mesh position={[-0.008, 0.018, 0.006]} rotation={[0.2, 0.4, 0]}>
+                    <boxGeometry args={[0.014, 0.014, 0.014]} />
+                    <meshStandardMaterial color="#ffffff" transparent opacity={0.75} roughness={0.1} />
+                  </mesh>
+                  <mesh position={[0.008, 0.02, -0.006]} rotation={[0.5, 0.1, 0.3]}>
+                    <boxGeometry args={[0.013, 0.013, 0.013]} />
+                    <meshStandardMaterial color="#ffffff" transparent opacity={0.75} roughness={0.1} />
+                  </mesh>
+                  {/* 빨대 (Straw) */}
+                  <mesh position={[0.01, 0.028, 0.004]} rotation={[0.15, 0, -0.25]}>
+                    <cylinderGeometry args={[0.0028, 0.0028, 0.10, 8]} />
+                    <meshStandardMaterial color="#ff7675" roughness={0.3} />
+                  </mesh>
+                </group>
+              ) : (
+                /* 소주잔 */
+                <mesh>
+                  <cylinderGeometry args={[0.024, 0.018, 0.05, 16]} />
+                  <meshStandardMaterial
+                    color="#dff9fb"
+                    transparent
+                    opacity={0.8}
+                    roughness={0.1}
+                    metalness={0.2}
+                  />
+                </mesh>
+              )}
             </group>
           )}
 
@@ -458,17 +571,6 @@ export const Avatar: React.FC<AvatarProps> = ({
           </mesh>
         </group>
       </group>
-
-      {/* 내 캐릭터 전용 소프트 스포트라이트 (모바일 및 어두운 야경에서도 캐릭터가 묻히지 않고 또렷하게 보이도록 비추는 감성 조명) */}
-      {isMe && (
-        <pointLight
-          position={[0, 1.8, 0.6]}
-          color="#fff6e5"
-          intensity={1.8}
-          distance={4.5}
-          decay={1.8}
-        />
-      )}
     </group>
   );
 };

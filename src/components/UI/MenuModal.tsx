@@ -90,7 +90,7 @@ export const MenuModal: React.FC<MenuModalProps> = ({
         }}
         title={`${item.name} (${item.enName || ''}) - ${item.desc} (터치하여 선택/해제)`}
       >
-        {/* 메뉴 이름 & 영문명 & 한자 */}
+        {/* 메뉴 이름 & 영문명 (한문 제거) */}
         <div className="flex items-center gap-1 overflow-hidden">
           <span
             className="font-black text-[12px] sm:text-[13px] md:text-[14px] tracking-wide text-[#1e272e] whitespace-nowrap"
@@ -101,11 +101,6 @@ export const MenuModal: React.FC<MenuModalProps> = ({
           {item.enName && (
             <span className="text-[8.5px] sm:text-[9.5px] text-[#2d3436]/75 font-bold tracking-tight whitespace-nowrap">
               {item.enName}
-            </span>
-          )}
-          {item.hanja && (
-            <span className="text-[8px] sm:text-[9px] text-[#636e72] font-normal tracking-tight hidden sm:inline">
-              {item.hanja}
             </span>
           )}
         </div>

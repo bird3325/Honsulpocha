@@ -5,6 +5,7 @@ class AudioEngine {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
   private isInitialized: boolean = false;
+  private rainSource: AudioBufferSourceNode | null = null;
   private rainNode: AudioNode | null = null;
   private rainFilter: BiquadFilterNode | null = null;
   private rainGain: GainNode | null = null;
@@ -21,10 +22,19 @@ class AudioEngine {
   };
 
   public init() {
-    if (this.isInitialized) return;
+    if (this.isInitialized) {
+      if (this.ctx && this.ctx.state === 'suspended' && !this.isMuted) {
+        this.ctx.resume();
+      }
+      return;
+    }
     try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      this.ctx = new AudioContextClass();
+      if (!this.ctx || this.ctx.state === 'closed') {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        this.ctx = new AudioContextClass();
+      } else if (this.ctx.state === 'suspended' && !this.isMuted) {
+        this.ctx.resume();
+      }
       this.isInitialized = true;
       this.createNoiseBuffer();
       this.startRainAmbience();
@@ -33,6 +43,37 @@ class AudioEngine {
     } catch (e) {
       console.warn('Web Audio 초기화 실패:', e);
     }
+  }
+
+  // 포차 나가기(퇴장) 시 모든 배경음, 음악, 인터벌 및 Web Audio 컨텍스트를 즉시 정지
+  public stop() {
+    if (this.musicInterval) {
+      clearInterval(this.musicInterval);
+      this.musicInterval = null;
+    }
+    if (this.ambientInterval) {
+      clearInterval(this.ambientInterval);
+      this.ambientInterval = null;
+    }
+    if (this.rainSource) {
+      try {
+        this.rainSource.stop();
+        this.rainSource.disconnect();
+      } catch (e) {}
+      this.rainSource = null;
+    }
+    if (this.rainNode) {
+      try {
+        (this.rainNode as any).disconnect();
+      } catch (e) {}
+      this.rainNode = null;
+    }
+    if (this.ctx) {
+      try {
+        this.ctx.suspend();
+      } catch (e) {}
+    }
+    this.isInitialized = false;
   }
 
   // 공용 화이트 노이즈 버퍼 생성 (효율적인 재사용)
@@ -72,6 +113,7 @@ class AudioEngine {
     const whiteNoise = this.ctx.createBufferSource();
     whiteNoise.buffer = noiseBuffer;
     whiteNoise.loop = true;
+    this.rainSource = whiteNoise;
 
     // 포차 텐트 안에서 듣는 비 느낌을 위한 로우패스 필터
     const filter = this.ctx.createBiquadFilter();

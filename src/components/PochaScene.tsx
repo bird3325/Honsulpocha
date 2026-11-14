@@ -17,6 +17,7 @@ import { useKeyboard } from '../hooks/useKeyboard';
 import { soundManager } from './AudioController';
 
 interface PochaSceneProps {
+  isMobile?: boolean;
   myPlayer: Player | null;
   otherPlayers: Map<string, Player>;
   onUpdatePlayer: (
@@ -43,6 +44,7 @@ interface PochaSceneProps {
 }
 
 export const PochaScene: React.FC<PochaSceneProps> = ({
+  isMobile = false,
   myPlayer,
   otherPlayers,
   onUpdatePlayer,
@@ -64,7 +66,17 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
   const targetPos = useRef<[number, number, number] | null>(null);
   const targetChairRef = useRef<ChairSlot | null>(null);
   const controlsRef = useRef<any>(null);
-  const { camera } = useThree();
+  const { camera, size } = useThree();
+
+  // 모바일 세로 화면(Portrait, 종횡비 < 1) 시 수평 화각이 좁아져 화면이 파묻히거나 어둡게 보이는 현상 방지
+  useEffect(() => {
+    if (camera instanceof THREE.PerspectiveCamera) {
+      const aspect = size.width / size.height;
+      // 세로 화면일 때는 FOV를 62로 넓혀 포차 내부 전경을 시원하게 조망
+      camera.fov = aspect < 1 ? 62 : 45;
+      camera.updateProjectionMatrix();
+    }
+  }, [camera, size.width, size.height]);
 
   // 주인장 배달(서빙) 시 카메라 자동 포커싱을 위한 사장님 위치 및 상태 Ref
   const bossPosRef = useRef<[number, number, number]>([0, 0, -4.8]);
@@ -568,19 +580,36 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
 
   return (
     <>
-      {/* 분위기별 감성 안개 & 조명 */}
-      <fog attach="fog" args={[moodConfig.fogColor, moodConfig.fogNear, moodConfig.fogFar]} />
-      <ambientLight intensity={moodConfig.ambientIntensity} color={moodConfig.ambientColor} />
+      {/* 씬 배경색 명시 (포차 밤하늘 톤 클리어 보장) */}
+      <color attach="background" args={[moodConfig.fogColor]} />
+
+      {/* 분위기별 감성 안개: 모바일에서는 뎁스 정밀도 왜곡으로 인한 블랙스크린을 방지하기 위해 데스크톱에서만 적용 */}
+      {!isMobile && (
+        <fog attach="fog" args={[moodConfig.fogColor, Math.max(30, moodConfig.fogNear), Math.max(95, moodConfig.fogFar)]} />
+      )}
+
+      {/* 1. 환경광 (Ambient Light): 모바일 PBR 쉐이더에서도 텐트와 캐릭터가 선명하게 살아나도록 충분한 조도 제공 */}
+      <ambientLight intensity={isMobile ? 1.85 : Math.max(1.35, moodConfig.ambientIntensity)} color={moodConfig.ambientColor} />
+
+      {/* 2. 반구 조명 (Hemisphere Light): 하늘빛과 지면 반사광을 부드럽게 채워 모바일에서 메쉬가 절대 검게 죽지 않도록 방지 */}
+      <hemisphereLight
+        args={[moodConfig.dirLightColor, '#3d2b1f', isMobile ? 1.35 : 0.75]}
+      />
+
+      {/* 3. 직사광 (Directional Light): 모바일에서는 shadow 비활성화로 GPU 과부하 및 블랙아웃 방지 */}
       <directionalLight
         position={moodConfig.dirLightPos}
         intensity={moodConfig.dirLightIntensity}
         color={moodConfig.dirLightColor}
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        castShadow={!isMobile}
+        shadow-bias={0.0001}
+        shadow-normalBias={0.02}
+        shadow-mapSize-width={isMobile ? 512 : 1024}
+        shadow-mapSize-height={isMobile ? 512 : 1024}
       />
-      {/* 포차 전면을 채우는 따뜻한 보조 조명 */}
-      <pointLight position={[0, 3.2, 2.5]} color={moodConfig.pochaLightColor} intensity={moodConfig.pochaLightIntensity} distance={15} />
+
+      {/* 4. 포차 전면을 채우는 따뜻한 보조 조명 */}
+      <pointLight position={[0, 3.2, 2.5]} color={moodConfig.pochaLightColor} intensity={moodConfig.pochaLightIntensity} distance={20} decay={1.5} />
 
       {/* OrbitControls (회전 및 자유로운 줌인/줌아웃) */}
       <OrbitControls
@@ -634,10 +663,15 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
         isSeated={!!currentChair}
         isMe={true}
         autoThought={autoThought}
+        drinkId={tableServings ? (currentChair ? tableServings[currentChair.tableId]?.drinkId : undefined) : undefined}
       />
 
-      {/* 다른 접속자 캐릭터들 */}
-      <OtherAvatars players={otherPlayers} />
+      {/* 다른 접속자 캐릭터들 (내 캐릭터 및 내 닉네임 중복 렌더링 원천 방지) */}
+      <OtherAvatars
+        players={otherPlayers}
+        myPlayerId={myPlayer?.id}
+        myNickname={myPlayer?.nickname}
+      />
     </>
   );
 };

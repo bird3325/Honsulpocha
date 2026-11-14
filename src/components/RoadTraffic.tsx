@@ -172,7 +172,6 @@ export const RoadTraffic: React.FC = () => {
                     roughness={0.3}
                   />
                 </mesh>
-                <pointLight color="#fed330" intensity={1.5} distance={6} />
               </group>
             )}
 
@@ -252,17 +251,10 @@ export const RoadTraffic: React.FC = () => {
                     <meshBasicMaterial color="#ffffff" />
                   </mesh>
                 ))}
-                {/* 전방 아스팔트와 비 내리는 밤길을 비추는 실사 헤드라이트 광원 */}
-                <pointLight
-                  color="#f1f2f6"
-                  intensity={3.2}
-                  distance={18}
-                  decay={2}
-                />
               </group>
             ))}
 
-            {/* 6. 입체 LED 테일램프 (후방 -Z) */}
+            {/* 6. 입체 LED 테일램프 (후방 -Z: 자체 발광 매질) */}
             {[-carWidth * 0.36, carWidth * 0.36].map((tx, ti) => (
               <group key={ti} position={[tx, 0.46, -carLength / 2 - 0.02]}>
                 {/* 테일램프 라이트바 */}
@@ -275,13 +267,6 @@ export const RoadTraffic: React.FC = () => {
                     roughness={0.1}
                   />
                 </mesh>
-                {/* 젖은 아스팔트 도로에 붉게 반사되는 브레이크 후미등 빛 */}
-                <pointLight
-                  color="#ff3838"
-                  intensity={2.0}
-                  distance={8}
-                  decay={2}
-                />
               </group>
             ))}
 

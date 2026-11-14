@@ -54,23 +54,50 @@ export const App: React.FC = () => {
       setTableServings((prev) => {
         const current = prev[targetTableId] || { hasDrink: false, hasFood: false };
         if (item.category === 'drink') {
+          const isBeverage = item.id.startsWith('bev_') || (item as any).section === 'beverage';
+          const maxCount = isBeverage ? 3 : 8; // 음료는 3모금, 주류는 8잔
+
+          // 기존 테이블 위에 올려져 있던 주류/음료 목록 보존 및 새 음료 추가
+          const existingDrinks = current.drinks
+            ? [...current.drinks]
+            : current.hasDrink && current.drinkId
+            ? [{ drinkId: current.drinkId, drinkCount: current.drinkCount ?? maxCount }]
+            : [];
+
+          const newDrinks = [...existingDrinks, { drinkId: item.id, drinkCount: maxCount }];
+          const activeDrink = newDrinks.find((d) => d.drinkCount > 0) || newDrinks[0];
+
           return {
             ...prev,
             [targetTableId]: {
               ...current,
               hasDrink: true,
-              drinkId: item.id,
-              drinkCount: 8, // 혼자서 한 병 기준 8잔
+              drinkId: activeDrink.drinkId,
+              drinkCount: activeDrink.drinkCount,
+              drinks: newDrinks,
             },
           };
         } else {
+          const maxCount = 8; // 메뉴 한 개 기준 8입
+
+          // 기존 테이블 위에 올려져 있던 안주 목록 보존 및 새 안주 추가
+          const existingFoods = current.foods
+            ? [...current.foods]
+            : current.hasFood && current.foodId
+            ? [{ foodId: current.foodId, foodCount: current.foodCount ?? maxCount }]
+            : [];
+
+          const newFoods = [...existingFoods, { foodId: item.id, foodCount: maxCount }];
+          const activeFood = newFoods.find((f) => f.foodCount > 0) || newFoods[0];
+
           return {
             ...prev,
             [targetTableId]: {
               ...current,
               hasFood: true,
-              foodId: item.id,
-              foodCount: 8, // 메뉴 한 개 기준 8입
+              foodId: activeFood.foodId,
+              foodCount: activeFood.foodCount,
+              foods: newFoods,
             },
           };
         }
@@ -110,6 +137,12 @@ export const App: React.FC = () => {
     "꿀꺽... 술 한 모금에 하루 시름이 싹 씻겨 내려가네.",
     "홀짝... 빗소리 들으며 조용히 마시는 이 한잔이 큰 위로가 된다.",
     "캬아... 차가운 소주가 가슴을 뜨겁게 적셔주네.",
+  ];
+
+  const BEVERAGE_THOUGHTS = [
+    "꿀꺽꿀꺽... 캬~ 시원한 탄산이 목을 뻥 뚫어주네.",
+    "호로록... 달콤하고 시원한 음료 한 모금에 피로가 싹 풀린다.",
+    "꿀꺽... 빗소리 들으며 조용히 마시는 시원한 음료 참 좋다.",
   ];
 
   const EAT_THOUGHTS = [
@@ -161,18 +194,22 @@ export const App: React.FC = () => {
       const step = cycleStep % 5;
 
       if (step === 0) {
-        // 1. 혼자서 술잔 채우고 홀짝 마시기 (술병 기울여 따르기 -> 잔 들어 마시기)
+        // 1. 혼자서 잔 채우고 홀짝 마시기 (음료/술병 기울여 따르기 -> 잔 들어 마시기)
         if (hasDrink) {
+          const isBev = serving?.drinkId?.startsWith('bev_') ?? false;
+          const maxCount = isBev ? 3 : 8;
+          const unit = isBev ? '모금' : '잔';
           soundManager.playPouringSound();
           setMyAction('pouring');
-          setAutoThought("쪼르르... 조용히 잔에 술을 채운다.");
+          setAutoThought(isBev ? "콸콸... 시원한 음료를 컵에 따른다." : "쪼르르... 조용히 잔에 술을 채운다.");
 
           setTimeout(() => {
             soundManager.playCheersSound();
             setMyAction('drinking');
             const res = handleConsumeDrink();
-            const thought = DRINK_THOUGHTS[Math.floor(Math.random() * DRINK_THOUGHTS.length)];
-            setAutoThought(`${thought} (${res.count}/8잔)`);
+            const thoughtPool = isBev ? BEVERAGE_THOUGHTS : DRINK_THOUGHTS;
+            const thought = thoughtPool[Math.floor(Math.random() * thoughtPool.length)];
+            setAutoThought(`${thought} (${res.count}/${maxCount}${unit})`);
 
             setTimeout(() => {
               setMyAction(currentChairRef.current ? 'sitting' : 'idle');
@@ -251,12 +288,21 @@ export const App: React.FC = () => {
   const handleOrderMenu = (items: PochaMenuItem[]) => {
     if (items.length === 0) return;
 
+    // 의자에 앉지 않은 상태에서는 주문 차단
+    if (!currentChair) {
+      setServingToast('🪑 먼저 테이블 의자에 앉으신 후 메뉴를 주문해주세요!');
+      setTimeout(() => {
+        setServingToast(null);
+      }, 3500);
+      return;
+    }
+
     // 메뉴판에서 주문 완료 시 즉시 [한잔] 및 [먹기] 버튼 활성화
     setHasOrderedAfterMenu(true);
 
     let targetPos: [number, number, number] = [0, 0, 0];
     let tableName = '테이블';
-    const targetTableId = currentChair ? currentChair.tableId : 't1';
+    const targetTableId = currentChair.tableId;
 
     // 포차 테이블 10개 좌표 맵
     const TABLE_POS_MAP: Record<string, [number, number, number]> = {
@@ -341,64 +387,110 @@ export const App: React.FC = () => {
     }, 6500);
   };
 
-  // 1. 술 한잔 소비 핸들러 (마실 때마다 잔 수 감소 -> 다 마시면 테이블에서 비워짐)
-  const handleConsumeDrink = (): { count: number; isDone: boolean } => {
+  // 1. 술/음료 소비 핸들러 (동기적 계산으로 남은 잔 수 즉시 반환 -> 다 마시면 다음 음료 전환)
+  const handleConsumeDrink = (): { count: number; isDone: boolean; drinkId?: string } => {
     const targetTableId = currentChairRef.current ? currentChairRef.current.tableId : 't1';
+    const cur = tableServingsRef.current[targetTableId] || { hasDrink: false, hasFood: false };
+
+    const drinksList =
+      cur.drinks && cur.drinks.length > 0
+        ? cur.drinks.map((d) => ({ ...d }))
+        : cur.hasDrink && cur.drinkId
+        ? [{ drinkId: cur.drinkId, drinkCount: cur.drinkCount ?? (cur.drinkId.startsWith('bev_') ? 3 : 8) }]
+        : [];
+
+    let currentDrinkId: string | undefined;
     let resultCount = 0;
-    let resultDone = false;
 
-    setTableServings((prev) => {
-      const cur = prev[targetTableId] || { hasDrink: false, hasFood: false };
-      const curCount = cur.drinkCount ?? 8;
-      resultCount = Math.max(0, curCount - 1);
-      resultDone = resultCount <= 0;
+    // 아직 남은 음료 중 첫 번째 음료 찾아서 1잔/모금 차감
+    const activeIdx = drinksList.findIndex((d) => d.drinkCount > 0);
+    if (activeIdx >= 0) {
+      const item = drinksList[activeIdx];
+      currentDrinkId = item.drinkId;
+      resultCount = Math.max(0, item.drinkCount - 1);
+      drinksList[activeIdx] = { ...item, drinkCount: resultCount };
+    }
 
-      const updated = {
-        ...prev,
-        [targetTableId]: {
-          ...cur,
-          hasDrink: !resultDone,
-          drinkCount: resultCount,
-        },
-      };
-      if (resultDone && !cur.hasFood) {
-        setHasOrderedAfterMenu(false);
-        setIsAutoMode(false);
-      }
-      return updated;
-    });
+    // 테이블 위에 아직 마실 수 있는 음료가 남아있는지 확인
+    const remainingDrinks = drinksList.filter((d) => d.drinkCount > 0);
+    const resultDone = remainingDrinks.length === 0;
+    const nextActive = remainingDrinks[0];
 
-    return { count: resultCount, isDone: resultDone };
+    const updatedServing: TableServing = {
+      ...cur,
+      hasDrink: !resultDone,
+      drinkId: nextActive ? nextActive.drinkId : (currentDrinkId || cur.drinkId),
+      drinkCount: nextActive ? nextActive.drinkCount : 0,
+      drinks: drinksList,
+    };
+
+    // 상태 및 Ref 즉시 동기화
+    tableServingsRef.current[targetTableId] = updatedServing;
+    setTableServings((prev) => ({
+      ...prev,
+      [targetTableId]: updatedServing,
+    }));
+
+    const stillHasFood = cur.foods ? cur.foods.some((f) => f.foodCount > 0) : cur.hasFood;
+    if (resultDone && !stillHasFood) {
+      setHasOrderedAfterMenu(false);
+      setIsAutoMode(false);
+    }
+
+    return { count: resultCount, isDone: resultDone, drinkId: currentDrinkId };
   };
 
-  // 2. 안주 한 입 소비 핸들러 (먹을 때마다 입 수 감소 -> 다 먹으면 접시 깨끗이 비워짐)
-  const handleConsumeFood = (): { count: number; isDone: boolean } => {
+  // 2. 안주 소비 핸들러 (동기적 계산으로 남은 입 수 즉시 반환 -> 다 먹으면 다음 안주 전환)
+  const handleConsumeFood = (): { count: number; isDone: boolean; foodId?: string } => {
     const targetTableId = currentChairRef.current ? currentChairRef.current.tableId : 't1';
+    const cur = tableServingsRef.current[targetTableId] || { hasDrink: false, hasFood: false };
+
+    const foodsList =
+      cur.foods && cur.foods.length > 0
+        ? cur.foods.map((f) => ({ ...f }))
+        : cur.hasFood && cur.foodId
+        ? [{ foodId: cur.foodId, foodCount: cur.foodCount ?? 8 }]
+        : [];
+
+    let currentFoodId: string | undefined;
     let resultCount = 0;
-    let resultDone = false;
 
-    setTableServings((prev) => {
-      const cur = prev[targetTableId] || { hasDrink: false, hasFood: false };
-      const curCount = cur.foodCount ?? 8;
-      resultCount = Math.max(0, curCount - 1);
-      resultDone = resultCount <= 0;
+    // 아직 남은 안주 중 첫 번째 안주 찾아서 1입 차감
+    const activeIdx = foodsList.findIndex((f) => f.foodCount > 0);
+    if (activeIdx >= 0) {
+      const item = foodsList[activeIdx];
+      currentFoodId = item.foodId;
+      resultCount = Math.max(0, item.foodCount - 1);
+      foodsList[activeIdx] = { ...item, foodCount: resultCount };
+    }
 
-      const updated = {
-        ...prev,
-        [targetTableId]: {
-          ...cur,
-          hasFood: !resultDone,
-          foodCount: resultCount,
-        },
-      };
-      if (resultDone && !cur.hasDrink) {
-        setHasOrderedAfterMenu(false);
-        setIsAutoMode(false);
-      }
-      return updated;
-    });
+    // 테이블 위에 아직 먹을 수 있는 안주가 남아있는지 확인
+    const remainingFoods = foodsList.filter((f) => f.foodCount > 0);
+    const resultDone = remainingFoods.length === 0;
+    const nextActive = remainingFoods[0];
 
-    return { count: resultCount, isDone: resultDone };
+    const updatedServing: TableServing = {
+      ...cur,
+      hasFood: !resultDone,
+      foodId: nextActive ? nextActive.foodId : (currentFoodId || cur.foodId),
+      foodCount: nextActive ? nextActive.foodCount : 0,
+      foods: foodsList,
+    };
+
+    // 상태 및 Ref 즉시 동기화
+    tableServingsRef.current[targetTableId] = updatedServing;
+    setTableServings((prev) => ({
+      ...prev,
+      [targetTableId]: updatedServing,
+    }));
+
+    const stillHasDrink = cur.drinks ? cur.drinks.some((d) => d.drinkCount > 0) : cur.hasDrink;
+    if (resultDone && !stillHasDrink) {
+      setHasOrderedAfterMenu(false);
+      setIsAutoMode(false);
+    }
+
+    return { count: resultCount, isDone: resultDone, foodId: currentFoodId };
   };
 
   // 메뉴 주문 완료 시에만 사색모드 토글 가능
@@ -429,6 +521,7 @@ export const App: React.FC = () => {
 
   // 4. 포차 밖 도달 시 최종 로그아웃 완료 핸들러 (첫 입장 화면으로 복귀)
   const handleExitComplete = () => {
+    soundManager.stop(); // 포차 밖으로 나갔으므로 빗소리, Lo-Fi 음악, 앰비언스 등 모든 사운드 즉시 정지
     setIsExiting(false);
     setHasEntered(false); // 로그아웃 처리 -> 감성 WelcomeModal로 복귀
     setCurrentChair(null);
@@ -500,12 +593,21 @@ export const App: React.FC = () => {
       {/* 2. 3D WebGL Canvas (전체 화면 100vw x 100vh 풀스크린) */}
       <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
         <Canvas
-          shadows
+          shadows={!isMobile}
           camera={{ position: [0, 2.8, 6.6], fov: 45 }}
-          gl={{ antialias: true, alpha: false }}
+          dpr={isMobile ? [1, 1.5] : [1, 2]}
+          gl={{
+            antialias: true,
+            alpha: false,
+            powerPreference: isMobile ? 'default' : 'high-performance',
+            precision: 'highp',
+            depth: true,
+            stencil: false,
+          }}
           style={{ width: '100%', height: '100%', display: 'block' }}
         >
           <PochaScene
+            isMobile={isMobile}
             myPlayer={myPlayer}
             otherPlayers={otherPlayers}
             onUpdatePlayer={handleUpdatePlayer}
@@ -559,7 +661,16 @@ export const App: React.FC = () => {
           setMyAction={setMyAction}
           onStandUp={handleStandUp}
           broadcastAction={handleBroadcastAction}
-          onOpenMenu={() => setIsMenuOpen(true)}
+          onOpenMenu={() => {
+            if (!currentChair) {
+              setServingToast('🪑 먼저 테이블 의자에 앉으신 후 메뉴를 주문해주세요!');
+              setTimeout(() => {
+                setServingToast(null);
+              }, 3500);
+              return;
+            }
+            setIsMenuOpen(true);
+          }}
           servingToast={servingToast}
           hasOrderedMenu={hasOrderedAfterMenu}
           onConsumeDrink={handleConsumeDrink}
@@ -588,8 +699,8 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* 7. 모바일 세로 모드 시 가로 화면 유도 오버레이 */}
-      <RotateOrientationOverlay />
+      {/* 7. 모바일 세로 모드 시 가로 화면 유도 오버레이 (입장 완료 후에만 표시) */}
+      {hasEntered && <RotateOrientationOverlay />}
     </div>
   );
 };

@@ -3,13 +3,25 @@ import * as THREE from 'three';
 import { ChairSlot } from '../types';
 import { RealisticPochaFood } from './RealisticPochaFood';
 
+export interface FoodItemServing {
+  foodId: string;
+  foodCount: number;  // 남은 안주 입 수 (메뉴 한 개 기준 8입)
+}
+
+export interface DrinkItemServing {
+  drinkId: string;
+  drinkCount: number; // 남은 술 잔/모금 수 (소주/맥주 8, 음료 3)
+}
+
 export interface TableServing {
   hasDrink: boolean;
   drinkId?: string;
   drinkCount?: number; // 남은 술 잔 수 (한 병 기준 8잔)
+  drinks?: DrinkItemServing[]; // 복수 주류/음료 목록
   hasFood: boolean;
   foodId?: string;
   foodCount?: number;  // 남은 안주 입 수 (메뉴 한 개 기준 8입)
+  foods?: FoodItemServing[];   // 복수 안주 목록
 }
 
 interface PochaTableProps {
@@ -40,34 +52,110 @@ export const PochaTable: React.FC<PochaTableProps> = ({
   const hasDrink = !!servedOrder?.hasDrink;
   const hasFood = !!servedOrder?.hasFood;
 
-  // 내가 앉은 의자의 각도(rotation) 파악 -> 캐릭터 바로 앞으로 술병과 잔, 안주를 배치
+  // 내가 앉은 의자 객체
   const myChair = chairSlots.find((c) => c.id === mySeatedChairId);
-  const myTableAngle = myChair ? myChair.rotation : 0;
-  // 캐릭터가 앉은 쪽에서 테이블 중심 쪽을 바라보는 전방 각도 벡터
-  // 캐릭터는 테이블을 바라보고 있으므로, 캐릭터의 전방은 chair.rotation 방향
-  // 캐릭터 쪽 테이블 모서리 좌표 (반지름 약 0.3m 지점)
-  // c1: z = tz - 0.85 (rot: 0) -> 캐릭터 앞 테이블 지점: x=0, z=-0.28
-  // c2: x = tx - 0.85 (rot: PI/2) -> 캐릭터 앞 테이블 지점: x=-0.28, z=0
-  // c3: z = tz + 0.85 (rot: PI) -> 캐릭터 앞 테이블 지점: x=0, z=0.28
-  // c4: x = tx + 0.85 (rot: -PI/2) -> 캐릭터 앞 테이블 지점: x=0.28, z=0
+
+  // 캐릭터가 앉은 쪽에서 테이블 중심 쪽을 바라보는 전방/좌/우 단위 벡터 계산
   const characterForwardVec = useMemo(() => {
     if (!myChair) {
-      return { frontX: 0, frontZ: 0.26, perpX: 0.14, perpZ: 0 };
+      return { dirX: 0, dirZ: 1, leftX: -1, leftZ: 0, rightX: 1, rightZ: 0 };
     }
-    // chair.position -> table.position 방향
+    // chair.position -> table.position 방향 (캐릭터가 테이블 중심을 향하는 방향)
     const dx = position[0] - myChair.position[0];
     const dz = position[2] - myChair.position[2];
     const len = Math.hypot(dx, dz) || 1;
-    // 캐릭터 바로 앞 테이블 지점 (테이블 중심에서 캐릭터 쪽으로 약 0.26m)
-    const frontX = -(dx / len) * 0.26;
-    const frontZ = -(dz / len) * 0.26;
-    // 전방 기준 좌/우 수직 벡터
-    const perpX = -(dz / len) * 0.14;
-    const perpZ = (dx / len) * 0.14;
-    return { frontX, frontZ, perpX, perpZ };
+    const dirX = dx / len;
+    const dirZ = dz / len;
+    // 캐릭터 기준 좌측 단위 벡터
+    const leftX = -dirZ;
+    const leftZ = dirX;
+    // 캐릭터 기준 우측 단위 벡터
+    const rightX = dirZ;
+    const rightZ = -dirX;
+    return { dirX, dirZ, leftX, leftZ, rightX, rightZ };
   }, [myChair, position]);
 
-  // 실제 사진 속 생생한 포차 빨강/파랑 색상
+  // 서빙된 모든 안주 목록 (배열 우선, 단일 필드 하위 호환)
+  const servedFoods = useMemo(() => {
+    if (servedOrder?.foods && servedOrder.foods.length > 0) {
+      return servedOrder.foods.filter((f) => f.foodCount > 0);
+    }
+    if (hasFood && servedOrder?.foodId && (servedOrder?.foodCount ?? 8) > 0) {
+      return [{ foodId: servedOrder.foodId, foodCount: servedOrder.foodCount ?? 8 }];
+    }
+    return [];
+  }, [servedOrder, hasFood]);
+
+  // 서빙된 모든 음료/주류 목록 (배열 우선, 단일 필드 하위 호환)
+  const servedDrinks = useMemo(() => {
+    if (servedOrder?.drinks && servedOrder.drinks.length > 0) {
+      return servedOrder.drinks.filter((d) => d.drinkCount > 0);
+    }
+    if (hasDrink && servedOrder?.drinkId && (servedOrder?.drinkCount ?? 8) > 0) {
+      return [{
+        drinkId: servedOrder.drinkId,
+        drinkCount: servedOrder.drinkCount ?? (servedOrder.drinkId.startsWith('bev_') ? 3 : 8),
+      }];
+    }
+    return [];
+  }, [servedOrder, hasDrink]);
+
+  // 안주 배치 좌표 (테이블 중앙 메인 요리 구역 - 술병과 절대 겹치지 않도록 분리)
+  const getFoodPosition = (index: number, total: number): [number, number, number] => {
+    if (!myChair) {
+      if (total === 1) return [0.06, 0, 0];
+      if (total === 2) {
+        return index === 0 ? [0.06, 0, -0.16] : [0.06, 0, 0.16];
+      }
+      const angle = (index / total) * Math.PI * 2;
+      return [0.06 + Math.cos(angle) * 0.16, 0, Math.sin(angle) * 0.16];
+    }
+
+    const { dirX, dirZ, leftX, leftZ, rightX, rightZ } = characterForwardVec;
+
+    // 1개: 테이블 중앙 약간 앞쪽
+    if (total === 1) {
+      return [dirX * 0.05, 0, dirZ * 0.05];
+    }
+    // 2개: 중앙 기준 좌/우로 16cm씩 나란히 배치
+    if (total === 2) {
+      return index === 0
+        ? [dirX * 0.06 + leftX * 0.16, 0, dirZ * 0.06 + leftZ * 0.16]
+        : [dirX * 0.06 + rightX * 0.16, 0, dirZ * 0.06 + rightZ * 0.16];
+    }
+    // 3개: 전방 중앙 1개, 뒤쪽 좌/우 2개 삼각형 배치
+    if (total === 3) {
+      if (index === 0) return [dirX * 0.18, 0, dirZ * 0.18];
+      return index === 1
+        ? [-dirX * 0.06 + leftX * 0.16, 0, -dirZ * 0.06 + leftZ * 0.16]
+        : [-dirX * 0.06 + rightX * 0.16, 0, -dirZ * 0.06 + rightZ * 0.16];
+    }
+    // 4개 이상: 테이블 중심 기준 고른 원형 배치
+    const ang = (index / total) * Math.PI * 2;
+    const rad = 0.17;
+    return [Math.cos(ang) * rad, 0, Math.sin(ang) * rad];
+  };
+
+  // 주류/음료 배치 좌표 (캐릭터 좌측 전방 전용 음료 구역 - 안주 접시 밖으로 36cm 완전 분리)
+  const getDrinkPosition = (index: number, total: number): [number, number, number] => {
+    if (!myChair) {
+      // NPC 또는 빈 테이블: 안주(X=0.06)와 34cm 이상 떨어진 좌측 전용 배치
+      const zOffset = total === 1 ? 0 : -0.12 + index * 0.18;
+      return [-0.28, 0, zOffset];
+    }
+
+    const { dirX, dirZ, leftX, leftZ } = characterForwardVec;
+
+    // 캐릭터의 좌측 36cm 전용 음료 라인에 나란히 정렬 (안주 접시와 20cm 이상 안전 거리 확보로 절대 겹침 없음)
+    const fOffset = total === 1 ? -0.06 : -0.16 + index * 0.18;
+    return [
+      dirX * fOffset + leftX * 0.36,
+      0,
+      dirZ * fOffset + leftZ * 0.36,
+    ];
+  };
+
+  // 실제 사진 속 생생한 포차 빨강/파랑 테이블 색상
   const isRedTable = tableColor === '#d63031';
   const primaryColor = isRedTable ? '#e84118' : '#0984e3';
 
@@ -144,40 +232,42 @@ export const PochaTable: React.FC<PochaTableProps> = ({
         </mesh>
       </group>
 
-      {/* 2. 테이블 위 주문 서빙 소품 (실제 주문한 메뉴와 100% 동일한 3D 음식 모델) */}
+      {/* 2. 테이블 위 주문 서빙 소품 (주문 추가 시 기존 메뉴와 함께 테이블 위에 모두 배치) */}
       <group position={[0, 0.76, 0]}>
-        {/* A. 주류 서빙 완료 시 나타나는 술병과 잔 (캐릭터가 앉은 바로 앞으로 배치, 술 따르는 중(isPouringAction)일 때는 테이블 병 숨김) */}
-        {hasDrink && servedOrder?.drinkId && (!isPouringAction || !mySeatedChairId) && (
-          <RealisticPochaFood
-            itemId={servedOrder.drinkId}
-            position={
-              myChair
-                ? [characterForwardVec.frontX - characterForwardVec.perpX, 0, characterForwardVec.frontZ - characterForwardVec.perpZ]
-                : [-0.15, 0, 0.08]
-            }
-            rotation={myChair ? [0, myChair.rotation + Math.PI, 0] : [0, 0, 0]}
-            scale={0.7 + ((servedOrder.drinkCount ?? 8) / 8) * 0.3}
-          />
-        )}
+        {/* A. 주류/음료 서빙 완료 시 나타나는 병/캔과 잔 (추가 주문 시 나란히 늘어섬) */}
+        {servedDrinks.map((drinkItem, dIdx) => {
+          // 캐릭터가 술을 따르는 중(isPouringAction)일 때, 현재 마시는 첫 번째 음료는 손에 쥐므로 테이블에서만 일시 숨김
+          const isPouringThis = isPouringAction && mySeatedChairId && dIdx === 0;
+          if (isPouringThis) return null;
 
-        {/* B. 안주 서빙 완료 시 나타나는 정갈한 음식 요리 접시/냄비/뚝배기 (캐릭터 앞 테이블 중앙에 먹음직스럽게 배치) */}
-        {hasFood && servedOrder?.foodId && (
-          <RealisticPochaFood
-            itemId={servedOrder.foodId}
-            position={
-              myChair
-                ? [characterForwardVec.frontX * 0.7 + characterForwardVec.perpX * 0.6, 0, characterForwardVec.frontZ * 0.7 + characterForwardVec.perpZ * 0.6]
-                : [0.08, 0, -0.04]
-            }
-            rotation={myChair ? [0, myChair.rotation, 0] : [0, 0, 0]}
-            scale={0.6 + ((servedOrder.foodCount ?? 8) / 8) * 0.4}
-          />
-        )}
+          const isBev = drinkItem.drinkId.startsWith('bev_');
+          const maxCount = isBev ? 3 : 8;
+          const drinkScale = 0.7 + ((drinkItem.drinkCount ?? maxCount) / maxCount) * 0.3;
 
-        {/* 테이블 위 은은한 조명 */}
-        {(hasDrink || hasFood) && (
-          <pointLight color="#ffeaa7" intensity={0.65} distance={2.0} position={[0, 0.25, 0]} />
-        )}
+          return (
+            <RealisticPochaFood
+              key={`drink_${drinkItem.drinkId}_${dIdx}`}
+              itemId={drinkItem.drinkId}
+              position={getDrinkPosition(dIdx, servedDrinks.length)}
+              rotation={myChair ? [0, myChair.rotation + Math.PI, 0] : [0, 0, 0]}
+              scale={drinkScale}
+            />
+          );
+        })}
+
+        {/* B. 안주 서빙 완료 시 나타나는 음식 요리 접시/냄비/뚝배기 (추가 주문 시 테이블 위에 함께 정갈하게 배치) */}
+        {servedFoods.map((foodItem, fIdx) => {
+          const foodScale = 0.6 + ((foodItem.foodCount ?? 8) / 8) * 0.4;
+          return (
+            <RealisticPochaFood
+              key={`food_${foodItem.foodId}_${fIdx}`}
+              itemId={foodItem.foodId}
+              position={getFoodPosition(fIdx, servedFoods.length)}
+              rotation={myChair ? [0, myChair.rotation + (fIdx % 2 === 1 ? 0.3 : 0), 0] : [0, 0, 0]}
+              scale={foodScale}
+            />
+          );
+        })}
       </group>
 
       {/* 3. ★ 사진 속 실제 한국 포장마차 플라스틱 스툴 (손잡이 구멍 & 사출 다리 & 보강 링) */}

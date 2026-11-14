@@ -149,13 +149,11 @@ export const ParkEnvironment: React.FC<ParkEnvironmentProps> = ({ weatherMood = 
               <octahedronGeometry args={[0.26, 0]} />
               <meshStandardMaterial color="#dfe6e9" transparent opacity={0.65} roughness={0.1} />
             </mesh>
-            {/* 내부 발광 전구 */}
+            {/* 내부 발광 전구 (시각적 발광 유지) */}
             <mesh position={[0, 0, 0]}>
               <sphereGeometry args={[0.14, 12, 12]} />
               <meshBasicMaterial color="#ffeaa7" />
             </mesh>
-            {/* 공원 바닥과 산책로를 환하게 비추는 가로등 조명 */}
-            <pointLight color="#ffeaa7" intensity={4.5} distance={22} decay={1.8} />
           </group>
         </group>
       ))}
@@ -254,10 +252,8 @@ export const ParkEnvironment: React.FC<ParkEnvironmentProps> = ({ weatherMood = 
         </group>
       ))}
 
-      {/* 7. 공원 쪽 아늑하고 평화로운 자연광 & 가로등 앰비언트 (공원 수목 및 산책로 밝기 대폭 보강) */}
-      <pointLight position={[20, 10, -12]} color="#fffae6" intensity={2.8} distance={42} decay={1.5} />
-      <pointLight position={[20, 10, 12]} color="#fffae6" intensity={2.8} distance={42} decay={1.5} />
-      <directionalLight position={[28, 18, 0]} color="#fff3cd" intensity={1.5} />
+      {/* 7. 공원 쪽 아늑하고 평화로운 가로등 앰비언트 (모바일 WebGL 광원 한도 최적화 단일 통합 조명) */}
+      <pointLight position={[16, 6, 0]} color="#ffeaa7" intensity={1.8} distance={35} decay={1.5} />
     </group>
   );
 };

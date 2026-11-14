@@ -507,14 +507,7 @@ export const StreetEnvironment: React.FC<StreetEnvironmentProps> = ({ weatherMoo
           <cylinderGeometry args={[0.035, 0.035, 1.4, 8]} />
           <meshStandardMaterial color="#2f3542" />
         </mesh>
-        {/* 가로등 전구 & 따스한 주황빛 광원 */}
-        <pointLight
-          position={[1.3, 6.5, 0]}
-          color="#ffbe76"
-          intensity={2.8}
-          distance={18}
-          decay={2}
-        />
+        {/* 가로등 전구 (자체 발광 매질) */}
         <mesh position={[1.2, 6.6, 0]}>
           <sphereGeometry args={[0.14, 12, 12]} />
           <meshBasicMaterial color="#ffeaa7" />
@@ -531,12 +524,13 @@ export const StreetEnvironment: React.FC<StreetEnvironmentProps> = ({ weatherMoo
           <cylinderGeometry args={[0.035, 0.035, 1.4, 8]} />
           <meshStandardMaterial color="#2f3542" />
         </mesh>
+        {/* 길거리 및 보행로 통합 감성 가로등 조명 (모바일 광원 한도 최적화 단일화) */}
         <pointLight
           position={[-1.3, 6.5, 0]}
           color="#ffbe76"
           intensity={2.8}
-          distance={18}
-          decay={2}
+          distance={24}
+          decay={1.8}
         />
         <mesh position={[-1.2, 6.6, 0]}>
           <sphereGeometry args={[0.14, 12, 12]} />

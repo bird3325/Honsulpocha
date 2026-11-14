@@ -157,8 +157,6 @@ export const PochaTent: React.FC<PochaTentProps> = ({ weatherMood = 'rainy' }) =
             <sphereGeometry args={[0.055, 16, 16]} />
             <meshBasicMaterial color="#ffeaa7" />
           </mesh>
-          {/* 실제 포차 사진처럼 텐트 내부 전체를 아늑한 오렌지빛으로 물들이는 포인트 조명 */}
-          <pointLight color="#ff9f43" intensity={2.8} distance={8} decay={1.8} />
         </group>
       ))}
 
@@ -420,7 +418,7 @@ export const PochaTent: React.FC<PochaTentProps> = ({ weatherMood = 'rainy' }) =
               <cylinderGeometry args={[0.01, 0.01, 0.4, 6]} />
               <meshStandardMaterial color="#111" />
             </mesh>
-            {/* 전구 */}
+            {/* 전구 (자체 발광 매질로 시각적 화사함 100% 유지) */}
             <mesh position={[0, 0, 0]}>
               <sphereGeometry args={[0.12, 16, 16]} />
               <meshStandardMaterial
@@ -430,16 +428,18 @@ export const PochaTent: React.FC<PochaTentProps> = ({ weatherMood = 'rainy' }) =
                 roughness={0.1}
               />
             </mesh>
-            {/* 따뜻한 포차 램프 광원 (포차 내부 아늑한 조명) */}
-            <pointLight
-              color="#ff9f43"
-              intensity={2.8}
-              distance={11}
-              decay={2}
-            />
           </group>
         ))}
       </group>
+
+      {/* 포차 텐트 실내 전체를 아늑하고 은은하게 밝히는 단일 통합 옴니 조명 (모바일 WebGL 광원 한도 완벽 최적화) */}
+      <pointLight
+        position={[0, 3.4, 0]}
+        color="#ff9f43"
+        intensity={3.2}
+        distance={18}
+        decay={1.5}
+      />
     </group>
   );
 };

@@ -94,6 +94,8 @@ export const useMultiplayer = ({ onMyPlayerCreated }: UseMultiplayerProps) => {
   const [otherPlayers, setOtherPlayers] = useState<Map<string, Player>>(createInitialNPCs);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const socketRef = useRef<WebSocket | null>(null);
+  const myPlayerRef = useRef<Player>(myPlayer);
+  myPlayerRef.current = myPlayer;
 
   useEffect(() => {
     // 0초 즉시 초기 플레이어 콜백 전달
@@ -131,10 +133,17 @@ export const useMultiplayer = ({ onMyPlayerCreated }: UseMultiplayerProps) => {
           const msg = JSON.parse(event.data);
           if (msg.type === 'init') {
             setMyPlayer(msg.player);
+            myPlayerRef.current = msg.player;
             if (onMyPlayerCreated) onMyPlayerCreated(msg.player);
 
             const map = new Map<string, Player>();
-            const realUsers = (msg.allPlayers as Player[]).filter((p) => p.id !== msg.player.id);
+            // 본인 아이디 및 본인 닉네임은 절대 otherPlayers에 포함하지 않음 (중복 및 유령 캐릭터 원천 차단)
+            const realUsers = (msg.allPlayers as Player[]).filter(
+              (p) =>
+                p.id !== msg.player.id &&
+                p.id !== 'me_offline' &&
+                (!msg.player.nickname || p.nickname !== msg.player.nickname)
+            );
             realUsers.forEach((p) => {
               map.set(p.id, p);
             });
@@ -154,6 +163,16 @@ export const useMultiplayer = ({ onMyPlayerCreated }: UseMultiplayerProps) => {
 
             setOtherPlayers(map);
           } else if (msg.type === 'player_joined') {
+            // 본인 캐릭터(ID 또는 닉네임 일치)가 브로드캐스트로 돌아와 중복 렌더링되는 현상 차단
+            if (
+              !msg.player ||
+              msg.player.id === myPlayerRef.current?.id ||
+              msg.player.id === 'me_offline' ||
+              (myPlayerRef.current?.nickname && msg.player.nickname === myPlayerRef.current.nickname)
+            ) {
+              return;
+            }
+
             setOtherPlayers((prev) => {
               const next = new Map(prev);
               next.set(msg.player.id, msg.player);
@@ -169,6 +188,16 @@ export const useMultiplayer = ({ onMyPlayerCreated }: UseMultiplayerProps) => {
               return next;
             });
           } else if (msg.type === 'player_updated') {
+            // 본인 캐릭터(ID 또는 닉네임 일치)의 위치 업데이트가 otherPlayers에 반영되어 겹치는 현상 차단
+            if (
+              !msg.player ||
+              msg.player.id === myPlayerRef.current?.id ||
+              msg.player.id === 'me_offline' ||
+              (myPlayerRef.current?.nickname && msg.player.nickname === myPlayerRef.current.nickname)
+            ) {
+              return;
+            }
+
             setOtherPlayers((prev) => {
               const next = new Map(prev);
               next.set(msg.player.id, msg.player);
@@ -200,8 +229,12 @@ export const useMultiplayer = ({ onMyPlayerCreated }: UseMultiplayerProps) => {
 
     return () => {
       if (connectTimeout) clearTimeout(connectTimeout);
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.close();
+      if (ws) {
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          try {
+            ws.close();
+          } catch (e) {}
+        }
       }
     };
   }, []);
