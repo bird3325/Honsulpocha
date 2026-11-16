@@ -85,6 +85,21 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
   const resetToPlayerFrontRef = useRef<boolean>(false);
 
   const lastInteractRef = useRef<boolean>(false);
+  const exitCompletedRef = useRef<boolean>(false);
+
+  // isExiting 상태가 변경될 때 퇴장 완료 플래그 초기화
+  useEffect(() => {
+    if (!isExiting) {
+      exitCompletedRef.current = false;
+      if (controlsRef.current) {
+        controlsRef.current.enabled = true;
+      }
+    } else {
+      if (controlsRef.current) {
+        controlsRef.current.enabled = false; // 퇴장 시네마틱 카메라 중 임의 조작 방지
+      }
+    }
+  }, [isExiting]);
 
   // 날씨 및 분위기 테마별 조명/안개 감성 파라미터 구성
   const moodConfig = useMemo(() => {
@@ -355,14 +370,14 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
     }
     lastInteractRef.current = keys.interact;
 
-    // 1-A. 포차 나가기(퇴장) 자동 걷기 모드: 입구 밖으로 걸어나와 포차를 벗어나면 로그아웃
+    // 1-A. 포차 나가기(퇴장) 자동 걷기 모드: 입구 밖으로 완전히 걸어나와 포차를 벗어나면 로그아웃
     if (isExiting) {
       if (currentChair) {
         handleStandUp();
       }
       isMoving = true;
       const targetExitX = 0;
-      const targetExitZ = 6.4;
+      const targetExitZ = 8.2; // 포차 텐트 처마(5.76m)를 완전히 벗어나 바깥 밤거리 보도블럭으로 향함
 
       const diffX = targetExitX - playerPos.current[0];
       const diffZ = targetExitZ - playerPos.current[2];
@@ -370,14 +385,15 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
       const exitAngle = Math.atan2(diffX, diffZ);
       playerRot.current = exitAngle;
 
-      const exitSpeed = 2.2 * delta;
+      const exitSpeed = 2.3 * delta;
       playerPos.current[0] += Math.sin(exitAngle) * exitSpeed;
       playerPos.current[2] += Math.cos(exitAngle) * exitSpeed;
 
       onUpdatePlayer(playerPos.current, playerRot.current, 'walking', null);
 
-      // 포차 천막 밖 길거리(z >= 5.6)에 도달하면 퇴장(로그아웃) 콜백 호출
-      if (playerPos.current[2] >= 5.6 && onExitComplete) {
+      // 포차 텐트와 처마 밑을 완전히 통과하여 바깥 길거리(z >= 7.2)에 도달하면 퇴장(로그아웃) 처리
+      if (playerPos.current[2] >= 7.2 && !exitCompletedRef.current && onExitComplete) {
+        exitCompletedRef.current = true;
         onExitComplete();
       }
       return; // 퇴장 중에는 다른 수동 조작 방지
@@ -478,7 +494,26 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
       const prevTargetY = controlsRef.current.target.y;
       const prevTargetZ = controlsRef.current.target.z;
 
-      if (isBossServing) {
+      if (isExiting) {
+        // ★ 포차 나가기 시네마틱 카메라: 손님이 걸어나가는 쓸쓸하고 따뜻한 뒷모습을 등 뒤에서 비춤
+        const followDistance = 3.2; // 손님 뒤쪽 거리 (-Z 방향)
+        const camHeight = 1.6; // 손님의 어깨와 뒷모습, 비 내리는 바깥 거리를 시원하게 함께 조망하는 높이
+
+        // 손님은 +Z(포차 바깥)로 걸어가므로, 카메라는 손님의 등 뒤(-Z 쪽, 포차 실내 쪽)에 위치
+        const targetCamX = THREE.MathUtils.lerp(camera.position.x, playerPos.current[0] * 0.4, delta * 3.5);
+        const targetCamY = THREE.MathUtils.lerp(camera.position.y, camHeight, delta * 3.5);
+        const targetCamZ = THREE.MathUtils.lerp(camera.position.z, playerPos.current[2] - followDistance, delta * 3.5);
+
+        camera.position.set(targetCamX, targetCamY, targetCamZ);
+
+        // 카메라가 응시하는 타겟: 손님의 상체 뒷모습과 걸어가는 앞길 (+Z 방향)
+        const lookAtX = playerPos.current[0];
+        const lookAtY = 0.95;
+        const lookAtZ = playerPos.current[2] + 1.2;
+
+        controlsRef.current.target.lerp(new THREE.Vector3(lookAtX, lookAtY, lookAtZ), delta * 4.5);
+        controlsRef.current.update();
+      } else if (isBossServing) {
         wasBossServingRef.current = true;
         resetToPlayerFrontRef.current = false;
 

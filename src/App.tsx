@@ -513,6 +513,8 @@ export const App: React.FC = () => {
     if (isExiting) return;
     setIsExiting(true);
     setIsAutoMode(false);
+    setMyAction('walking');
+    setCurrentChair(null);
     setServingToast("👵 사장님: '손님, 오늘 하루도 참 고생 많으셨어요! 조심히 들어가시고 또 들러주세요~'");
     setTimeout(() => {
       setServingToast(null);
@@ -531,6 +533,7 @@ export const App: React.FC = () => {
     myRealtimePos.current = [0, 0, 4.6];
     myRealtimeRot.current = Math.PI;
     setServingToast(null);
+    sendUpdate([0, 0, 4.6], Math.PI, 'idle', null);
   };
 
   // 다른 유저들에게 내 이동/액션 브로드캐스트 & 내 실시간 위치 갱신
