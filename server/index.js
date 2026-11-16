@@ -61,6 +61,7 @@ wss.on('connection', (ws) => {
       if (data.type === 'update') {
         const player = players.get(playerId);
         if (player) {
+          if (data.nickname) player.nickname = data.nickname;
           player.position = data.position || player.position;
           player.rotation = data.rotation !== undefined ? data.rotation : player.rotation;
           player.action = data.action || player.action;

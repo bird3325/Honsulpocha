@@ -32,6 +32,8 @@ export const GrandmaBoss: React.FC<GrandmaBossProps> = ({
   const [currentOrder, setCurrentOrder] = useState<ServingOrder | null>(null);
   const [dialogueIdx, setDialogueIdx] = useState(0);
   const [speechText, setSpeechText] = useState<string | null>(null);
+  const [isDelivered, setIsDelivered] = useState<boolean>(false); // 손님 테이블에 배달 완료 시 서빙 쟁반 위 메뉴 제거 상태
+  const isDeliveredRef = useRef<boolean>(false);
 
   // 현재 사장님 위치 및 회전
   const currentPos = useRef<[number, number, number]>([0, 0, -4.8]);
@@ -56,6 +58,8 @@ export const GrandmaBoss: React.FC<GrandmaBossProps> = ({
 
       const order = customEvent.detail;
       setCurrentOrder(order);
+      setIsDelivered(false);
+      isDeliveredRef.current = false;
       const orderItems = order.items && order.items.length > 0 ? order.items : [order.item];
       const itemNames = orderItems.map((it) => it.name).join(', ');
       setSpeechText(`"네~ 손님! 주문하신 ${itemNames} 정성껏 가져다 드릴게요!"`);
@@ -176,6 +180,12 @@ export const GrandmaBoss: React.FC<GrandmaBossProps> = ({
       // 테이블 앞에서 테이블을 다정하게 바라보며 메뉴를 내려놓고 인사
       serveTimer.current += delta;
 
+      // ★ 손님 테이블에 쟁반을 내밀어 배달 완료하는 순간(1.1초 경과) 서빙 쟁반 위 메뉴 제거!
+      if (!isDeliveredRef.current && serveTimer.current >= 1.1) {
+        isDeliveredRef.current = true;
+        setIsDelivered(true);
+      }
+
       // 테이블 방향을 다정하게 바라보며 메뉴를 내려놓고 인사
       if (currentOrder?.targetPos) {
         // 테이블 중심 좌표 찾기 (테이블 번호 기반 또는 서빙 위치 기준)
@@ -205,10 +215,12 @@ export const GrandmaBoss: React.FC<GrandmaBossProps> = ({
         ];
         waypointIdxRef.current = 0;
         setSpeechText('"천천히 편하게 드셔요. 필요한 것 있으면 언제든 불러요~"');
+        isDeliveredRef.current = true;
+        setIsDelivered(true);
         setBossState('walk_to_kitchen');
       }
     } else if (bossState === 'walk_to_kitchen') {
-      // 주방으로 복귀 걸음
+      // 주방으로 복귀 걸음 (빈 쟁반을 단정하게 들고 감)
       const waypoints = waypointsRef.current;
       const target = waypoints[waypointIdxRef.current] || HOME_POS;
 
@@ -233,6 +245,8 @@ export const GrandmaBoss: React.FC<GrandmaBossProps> = ({
           setBossState('cooking');
           setCurrentOrder(null);
           setSpeechText(null);
+          setIsDelivered(false);
+          isDeliveredRef.current = false;
         }
       }
     }
@@ -483,8 +497,8 @@ export const GrandmaBoss: React.FC<GrandmaBossProps> = ({
             </mesh>
           </group>
 
-          {/* ★ 실제 주문한 모든 메뉴(주류 + 안주) 100% 실물 3D 렌더링 & 김(Steam) 효과 */}
-          {(() => {
+          {/* ★ 실제 주문한 모든 메뉴(주류 + 안주) 100% 실물 3D 렌더링 & 김(Steam) 효과 (손님 테이블 배달 전 서빙 이동 중에만 노출, 배달 후에는 깨끗한 빈 쟁반) */}
+          {!isDelivered && bossState !== 'walk_to_kitchen' && (() => {
             const orderItems =
               currentOrder?.items && currentOrder.items.length > 0
                 ? currentOrder.items

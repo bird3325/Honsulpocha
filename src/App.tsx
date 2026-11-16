@@ -5,6 +5,7 @@ import { Header } from './components/UI/Header';
 import { ActionOverlay } from './components/UI/ActionOverlay';
 import { WelcomeModal } from './components/UI/WelcomeModal';
 import { JoinTableModal } from './components/UI/JoinTableModal';
+import { WaitingModal } from './components/UI/WaitingModal';
 import { MenuModal } from './components/UI/MenuModal';
 import { RotateOrientationOverlay } from './components/UI/RotateOrientationOverlay';
 import { VirtualJoystick } from './components/UI/VirtualJoystick';
@@ -117,9 +118,82 @@ export const App: React.FC = () => {
   } | null>(null);
 
   // 멀티플레이어 상태 훅
-  const { myPlayer, otherPlayers, sendUpdate } = useMultiplayer({
+  const { myPlayer, setMyPlayer, otherPlayers, sendUpdate } = useMultiplayer({
     onMyPlayerCreated: () => { },
   });
+
+  // 포차 웨이팅(대기열) 시스템 상태
+  const [isWaitingModalOpen, setIsWaitingModalOpen] = useState<boolean>(false);
+  const [waitingMode, setWaitingMode] = useState<'register' | 'called'>('register');
+  const [waitingNumber, setWaitingNumber] = useState<number>(1);
+  const [isWaiting, setIsWaiting] = useState<boolean>(false);
+  const [assignedWaitingChair, setAssignedWaitingChair] = useState<ChairSlot | null>(null);
+  const waitingTimerRef = React.useRef<any>(null);
+
+  // 웨이팅 등록 핸들러 (대기 명부 작성)
+  const handleRegisterWaiting = () => {
+    setIsWaiting(true);
+    setWaitingNumber(1);
+    setIsWaitingModalOpen(false);
+    soundManager.playOrderSound();
+    setServingToast('⏳ 포차 웨이팅 1번으로 등록되었습니다! 자리가 나면 사장님이 불러드립니다.');
+    setTimeout(() => {
+      setServingToast(null);
+    }, 4500);
+
+    // 잠시 후(약 8초 뒤) 빈자리가 마련되어 사장님이 손님을 부르는 시뮬레이션
+    if (waitingTimerRef.current) clearTimeout(waitingTimerRef.current);
+    waitingTimerRef.current = setTimeout(() => {
+      const emptyChair: ChairSlot = {
+        id: 't3_c1',
+        tableId: 't3',
+        position: [-3.8, 0, 0.85],
+        rotation: 0,
+        isOccupied: false,
+      };
+      setAssignedWaitingChair(emptyChair);
+      setWaitingMode('called');
+      setIsWaitingModalOpen(true);
+      soundManager.playOrderSound();
+    }, 8500);
+  };
+
+  // 사장님의 부름에 자리 착석 수락 핸들러
+  const handleAcceptWaitingSeat = () => {
+    setIsWaiting(false);
+    setIsWaitingModalOpen(false);
+    if (waitingTimerRef.current) clearTimeout(waitingTimerRef.current);
+    if (assignedWaitingChair) {
+      window.dispatchEvent(
+        new CustomEvent('pocha_sit_chair', { detail: assignedWaitingChair })
+      );
+      setServingToast(`🍶 ${assignedWaitingChair.tableId.replace('t', '')}번 테이블에 편안하게 착석하셨습니다!`);
+      setTimeout(() => {
+        setServingToast(null);
+      }, 4000);
+    }
+  };
+
+  // 웨이팅 취소 핸들러
+  const handleCancelWaiting = () => {
+    setIsWaiting(false);
+    setIsWaitingModalOpen(false);
+    if (waitingTimerRef.current) clearTimeout(waitingTimerRef.current);
+    setServingToast('웨이팅이 취소되었습니다.');
+    setTimeout(() => {
+      setServingToast(null);
+    }, 2500);
+  };
+
+  // 외부(버튼/씬)에서 웨이팅 모달 호출 이벤트 수신
+  React.useEffect(() => {
+    const handleOpenWaiting = () => {
+      setWaitingMode('register');
+      setIsWaitingModalOpen(true);
+    };
+    window.addEventListener('pocha_request_waiting', handleOpenWaiting);
+    return () => window.removeEventListener('pocha_request_waiting', handleOpenWaiting);
+  }, []);
 
   // 메뉴판에서 주문 완료 후 한잔/먹기 버튼 활성화 상태
   const [hasOrderedAfterMenu, setHasOrderedAfterMenu] = useState<boolean>(false);
@@ -530,6 +604,9 @@ export const App: React.FC = () => {
     setHasOrderedAfterMenu(false);
     setIsAutoMode(false);
     setTableServings({});
+    setIsWaiting(false);
+    setIsWaitingModalOpen(false);
+    if (waitingTimerRef.current) clearTimeout(waitingTimerRef.current);
     myRealtimePos.current = [0, 0, 4.6];
     myRealtimeRot.current = Math.PI;
     setServingToast(null);
@@ -621,6 +698,10 @@ export const App: React.FC = () => {
             onRequestJoinTable={(chair, hostNickname, onAccept) => {
               setJoinModalInfo({ chair, hostNickname, onAccept });
             }}
+            onRequestWaiting={() => {
+              setWaitingMode('register');
+              setIsWaitingModalOpen(true);
+            }}
             weatherMood={weatherMood}
             tableServings={tableServings}
             joystickVector={joystickVector}
@@ -646,6 +727,17 @@ export const App: React.FC = () => {
           }}
         />
       )}
+
+      {/* 3-B. 포차 만석 웨이팅 및 호출 모달 */}
+      <WaitingModal
+        isOpen={isWaitingModalOpen}
+        mode={waitingMode}
+        waitingNumber={waitingNumber}
+        assignedChair={assignedWaitingChair}
+        onRegister={handleRegisterWaiting}
+        onAcceptSeat={handleAcceptWaitingSeat}
+        onClose={() => setIsWaitingModalOpen(false)}
+      />
 
       {/* 4. 모바일 가상 조이스틱 (모바일 터치 환경에서만 렌더링) */}
       {hasEntered && !isExiting && isMobile && (
@@ -683,6 +775,13 @@ export const App: React.FC = () => {
           onToggleAutoMode={handleToggleAutoMode}
           onExitPocha={handleExitPocha}
           isExiting={isExiting}
+          isWaiting={isWaiting}
+          waitingNumber={waitingNumber}
+          onCancelWaiting={handleCancelWaiting}
+          onRequestWaiting={() => {
+            setWaitingMode('register');
+            setIsWaitingModalOpen(true);
+          }}
         />
       )}
 
@@ -694,11 +793,19 @@ export const App: React.FC = () => {
         isServing={!!servingToast}
       />
 
-      {/* 6. 감성 입장 모달 (브라우저 오디오 권한 획득 & 첫 입장) */}
+      {/* 6. 감성 입장 모달 (브라우저 오디오 권한 획득 & 첫 입장 및 닉네임 수정) */}
       {!hasEntered && (
         <WelcomeModal
           nickname={myPlayer?.nickname || '조용한 소주'}
-          onEnter={() => setHasEntered(true)}
+          onEnter={(customNickname) => {
+            const finalNickname = customNickname?.trim() || myPlayer?.nickname || '조용한 소주';
+            setMyPlayer((prev) => ({
+              ...prev,
+              nickname: finalNickname,
+            }));
+            sendUpdate(myRealtimePos.current, myRealtimeRot.current, 'idle', null, finalNickname);
+            setHasEntered(true);
+          }}
         />
       )}
 

@@ -35,6 +35,7 @@ interface PochaSceneProps {
     hostNickname: string,
     onAccept: () => void
   ) => void;
+  onRequestWaiting?: () => void;
   weatherMood?: WeatherMood;
   tableServings?: Record<string, TableServing>;
   joystickVector?: React.MutableRefObject<{ x: number; y: number }>;
@@ -53,6 +54,7 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
   currentChair,
   setCurrentChair,
   onRequestJoinTable,
+  onRequestWaiting,
   weatherMood = 'rainy',
   tableServings,
   joystickVector,
@@ -295,6 +297,16 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
         handleStandUp();
         return;
       }
+
+      // 1. 만석(빈자리가 전혀 없음) 상태 검사 -> 웨이팅 모달 호출
+      const emptyChairs = chairSlots.filter((c) => !c.isOccupied);
+      if (emptyChairs.length === 0) {
+        if (onRequestWaiting) {
+          onRequestWaiting();
+        }
+        return;
+      }
+
       let closestChair: ChairSlot | null = null;
       let minDistance = 2.6;
 
@@ -316,9 +328,20 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
       }
     };
 
+    // 웨이팅 호출 수락 시 배정된 의자로 자동 이동 및 착석 이벤트
+    const handleSitSpecific = (e: Event) => {
+      const customEvent = e as CustomEvent<ChairSlot>;
+      if (!customEvent.detail) return;
+      executeSitChair(customEvent.detail);
+    };
+
     window.addEventListener('pocha_sit_nearest', handleSitNearest);
-    return () => window.removeEventListener('pocha_sit_nearest', handleSitNearest);
-  }, [chairSlots, currentChair]);
+    window.addEventListener('pocha_sit_chair', handleSitSpecific);
+    return () => {
+      window.removeEventListener('pocha_sit_nearest', handleSitNearest);
+      window.removeEventListener('pocha_sit_chair', handleSitSpecific);
+    };
+  }, [chairSlots, currentChair, onRequestWaiting]);
 
   const handleStandUp = () => {
     if (!currentChair) return;
@@ -346,6 +369,15 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
       if (currentChair) {
         handleStandUp();
       } else {
+        // 만석 상태인지 검사 -> 웨이팅 모달 호출
+        const emptyChairs = chairSlots.filter((c) => !c.isOccupied);
+        if (emptyChairs.length === 0) {
+          if (onRequestWaiting) {
+            onRequestWaiting();
+          }
+          return;
+        }
+
         // 내 위치에서 반경 1.8m 이내의 가장 가까운 빈 의자 찾기
         let closestChair: ChairSlot | null = null;
         let minDistance = 1.8;

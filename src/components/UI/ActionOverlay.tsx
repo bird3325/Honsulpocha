@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wine, LogOut, UtensilsCrossed, Armchair, Utensils, Sparkles, DoorOpen } from 'lucide-react';
+import { Wine, LogOut, UtensilsCrossed, Armchair, Utensils, Sparkles, DoorOpen, Clock } from 'lucide-react';
 import { PlayerAction, ChairSlot } from '../../types';
 import { soundManager } from '../AudioController';
 import { TableServing } from '../PochaTable';
@@ -22,6 +22,10 @@ interface ActionOverlayProps {
   onToggleAutoMode?: () => void;
   onExitPocha?: () => void;
   isExiting?: boolean;
+  isWaiting?: boolean;
+  waitingNumber?: number;
+  onCancelWaiting?: () => void;
+  onRequestWaiting?: () => void;
 }
 
 export const ActionOverlay: React.FC<ActionOverlayProps> = ({
@@ -41,6 +45,10 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
   onToggleAutoMode,
   onExitPocha,
   isExiting = false,
+  isWaiting = false,
+  waitingNumber = 1,
+  onCancelWaiting,
+  onRequestWaiting,
 }) => {
   const isMobile = useIsMobile();
   const isSitting = !!currentChair;
@@ -155,6 +163,29 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
         </div>
       )}
 
+      {/* 웨이팅 대기 중일 때 상단 감성 알림 바 */}
+      {isWaiting && !isSitting && (
+        <div className="fixed top-18 md:top-20 left-0 right-0 flex justify-center pointer-events-none z-30 px-4 animate-fadeIn">
+          <div className="pointer-events-auto flex items-center gap-2.5 px-4 py-2 bg-[#12151e]/95 backdrop-blur-xl border border-amber-400/50 rounded-full shadow-2xl text-xs text-white">
+            <span className="flex items-center gap-1.5 font-bold text-amber-300">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+              <span>⏳ 웨이팅 대기 중</span>
+            </span>
+            <span className="text-gray-400">|</span>
+            <span className="font-semibold text-gray-200">
+              내 번호 <strong className="text-amber-300">{waitingNumber}번</strong>
+            </span>
+            <span className="text-gray-400">|</span>
+            <button
+              onClick={onCancelWaiting}
+              className="text-[11px] text-gray-300 hover:text-white bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded-full transition-all cursor-pointer"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. 사색 모드 작동 중일 때: 화면 우측 상단/사이드로 빼서 전경을 100% 개방 */}
       {isAutoMode ? (
         <div className="fixed right-4 bottom-6 md:bottom-8 pointer-events-auto z-30 animate-fade-in">
@@ -179,16 +210,27 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
             style={{ bottom: 'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))' }}
           >
             <div className="flex flex-col items-end gap-2 pointer-events-auto p-1.5 bg-black/50 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl">
-              {/* 의자에 앉기 버튼 (비착석 & 모바일 터치 환경에서만 노출) */}
+              {/* 의자에 앉기 / 웨이팅 버튼 (비착석 & 모바일 터치 환경에서 노출) */}
               {!isSitting && (
-                <button
-                  onClick={() => window.dispatchEvent(new CustomEvent('pocha_sit_nearest'))}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-blue-600/90 hover:bg-blue-600 active:scale-95 transition-all text-white font-medium rounded-xl text-xs cursor-pointer shadow-lg w-full justify-center"
-                  title="가장 가까운 빈 의자에 앉기"
-                >
-                  <Armchair size={15} />
-                  <span>앉기</span>
-                </button>
+                isWaiting ? (
+                  <button
+                    onClick={onCancelWaiting}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-amber-600/90 hover:bg-amber-500 active:scale-95 transition-all text-white font-medium rounded-xl text-xs cursor-pointer shadow-lg w-full justify-center animate-pulse"
+                    title="현재 웨이팅 중입니다 (클릭 시 취소)"
+                  >
+                    <Clock size={15} />
+                    <span>대기 {waitingNumber}번</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent('pocha_sit_nearest'))}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-blue-600/90 hover:bg-blue-600 active:scale-95 transition-all text-white font-medium rounded-xl text-xs cursor-pointer shadow-lg w-full justify-center"
+                    title="가장 가까운 빈 의자에 앉기"
+                  >
+                    <Armchair size={15} />
+                    <span>앉기</span>
+                  </button>
+                )
               )}
 
               {/* 메뉴판에서 주문 완료 이후에만 노출되는 [한잔/한모금] 버튼 (음료는 3모금, 술은 8잔) */}
@@ -250,26 +292,32 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
                 </button>
               )}
 
-              {/* 다 먹었을 때 또는 귀가 희망 시: [포차 나가기] 버튼 */}
-              {(isAllConsumed || isOrdered) && (
-                <button
-                  onClick={onExitPocha}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-lg w-full justify-center ${
-                    isAllConsumed
-                      ? 'bg-rose-600/95 hover:bg-rose-600 text-white animate-bounce shadow-rose-500/30'
-                      : 'bg-rose-950/85 hover:bg-rose-900/90 text-rose-200 border border-rose-400/30'
-                  }`}
-                  title="다 마시고 먹었으니 포차 입구 밖으로 걸어나가 귀가하기"
-                >
-                  <DoorOpen size={15} />
-                  <span>나가기</span>
-                </button>
-              )}
+              {/* 포차 나가기 버튼 (입장 직후부터 상시 노출) */}
+              <button
+                onClick={onExitPocha}
+                disabled={isExiting}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-lg w-full justify-center ${
+                  isAllConsumed
+                    ? 'bg-rose-600/95 hover:bg-rose-600 text-white animate-bounce shadow-rose-500/30'
+                    : 'bg-rose-950/85 hover:bg-rose-900/90 text-rose-200 border border-rose-400/30'
+                }`}
+                title="포차 입구 밖으로 걸어나가 귀가하기"
+              >
+                <DoorOpen size={15} />
+                <span>나가기</span>
+              </button>
             </div>
           </div>
         ) : (
           <div className="fixed bottom-6 left-0 right-0 flex justify-center items-center pointer-events-none z-30">
             <div className="flex flex-row items-center gap-2 pointer-events-auto px-3 py-1.5 bg-black/45 backdrop-blur-xl rounded-full border border-white/15 shadow-2xl">
+              {/* 비착석 상태에서 웨이팅 중일 때 하단 바에 안내 뱃지 노출 */}
+              {!isSitting && isWaiting && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-amber-950/70 border border-amber-400/40 rounded-full text-xs font-bold text-amber-200">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                  <span>웨이팅 {waitingNumber}번 대기 중</span>
+                </div>
+              )}
               {/* 메뉴판에서 주문 완료 이후에만 노출되는 [한잔/한모금] 버튼 (음료는 3모금, 술은 8잔) */}
               {isOrdered && (
                 <button
@@ -329,21 +377,20 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
                 </button>
               )}
 
-              {/* 다 먹었을 때 또는 귀가 희망 시: [포차 나가기] 버튼 */}
-              {(isAllConsumed || isOrdered) && (
-                <button
-                  onClick={onExitPocha}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-bold transition-all cursor-pointer active:scale-95 shadow-lg ${
-                    isAllConsumed
-                      ? 'bg-rose-600/95 hover:bg-rose-600 text-white animate-bounce shadow-rose-500/30'
-                      : 'bg-rose-950/85 hover:bg-rose-900/90 text-rose-200 border border-rose-400/30'
-                  }`}
-                  title="다 마시고 먹었으니 포차 입구 밖으로 걸어나가 귀가하기"
-                >
-                  <DoorOpen size={15} />
-                  <span>나가기</span>
-                </button>
-              )}
+              {/* 포차 나가기 버튼 (입장 직후부터 상시 노출) */}
+              <button
+                onClick={onExitPocha}
+                disabled={isExiting}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-bold transition-all cursor-pointer active:scale-95 shadow-lg ${
+                  isAllConsumed
+                    ? 'bg-rose-600/95 hover:bg-rose-600 text-white animate-bounce shadow-rose-500/30'
+                    : 'bg-rose-950/85 hover:bg-rose-900/90 text-rose-200 border border-rose-400/30'
+                }`}
+                title="포차 입구 밖으로 걸어나가 귀가하기"
+              >
+                <DoorOpen size={15} />
+                <span>나가기</span>
+              </button>
             </div>
           </div>
         )
@@ -364,7 +411,7 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
               : '🍽️ 테이블 위의 술과 안주를 모두 비웠습니다! [메뉴판]을 열어 새 메뉴를 주문하거나 [나가기]를 누르세요.'
             : isSitting
             ? '📋 [메뉴판]을 열어 메뉴를 주문하시면 [한잔], [먹기], [사색]이 활성화됩니다.'
-            : '🐾 방향키 / 마우스로 빈 의자를 클릭하여 착석해보세요.'}
+            : '🐾 빈 의자를 클릭하여 착석하거나 [나가기]를 눌러 언제든 귀가할 수 있습니다.'}
         </div>
       </div>
     </>

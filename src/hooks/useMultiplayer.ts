@@ -243,7 +243,8 @@ export const useMultiplayer = ({ onMyPlayerCreated }: UseMultiplayerProps) => {
     position: [number, number, number],
     rotation: number,
     action: PlayerAction,
-    seatedChairId: string | null
+    seatedChairId: string | null,
+    nickname?: string
   ) => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(
@@ -253,6 +254,7 @@ export const useMultiplayer = ({ onMyPlayerCreated }: UseMultiplayerProps) => {
           rotation,
           action,
           seatedChairId,
+          ...(nickname ? { nickname } : {}),
         })
       );
     }
