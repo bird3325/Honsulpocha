@@ -432,13 +432,13 @@ export const PochaTent: React.FC<PochaTentProps> = ({ weatherMood = 'rainy' }) =
         ))}
       </group>
 
-      {/* 포차 텐트 실내 전체를 아늑하고 은은하게 밝히는 단일 통합 옴니 조명 (모바일 WebGL 광원 한도 완벽 최적화) */}
+      {/* 포차 텐트 실내 전체를 아늑하고 은은하게 밝히는 단일 통합 옴니 조명 (심야 감성 조도) */}
       <pointLight
         position={[0, 3.4, 0]}
         color="#ff9f43"
-        intensity={3.2}
-        distance={18}
-        decay={1.5}
+        intensity={2.1}
+        distance={16}
+        decay={1.6}
       />
     </group>
   );

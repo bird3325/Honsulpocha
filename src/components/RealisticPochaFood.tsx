@@ -7,6 +7,7 @@ interface RealisticPochaFoodProps {
   scale?: number;
   position?: [number, number, number];
   rotation?: [number, number, number];
+  isEmpty?: boolean;
 }
 
 // 뚝배기 및 국물 냄비 (라면, 우동, 잔치국수, 홍합탕, 어묵탕, 계란탕, 번데기탕)
@@ -20,7 +21,7 @@ const HOT_STEW_ITEMS = new Set([
   'food_beondegi',
 ]);
 
-// 갓 볶거나 구워낸 따뜻한 안주 (오돌뼈, 닭똥집, 꼼장어, 오징어볶음, 닭발, 두부김치, 꽁치구이, 계란말이, 오징어데침, 은행구이)
+// 갓 볶거나 구워낸 따뜻한 안주 (오돌뼈, 닭똥집, 꼼장어, 오징어볶음, 닭발, 두부김치, 꽁치구이, 계란말이, 오징어데침, 은행구이, 파전)
 const HOT_ANJU_ITEMS = new Set([
   'food_odolppyeo',
   'food_dakttongjip',
@@ -32,6 +33,7 @@ const HOT_ANJU_ITEMS = new Set([
   'food_gyeranmari',
   'food_ojingeo_dechim',
   'food_eunhaeng',
+  'food_pajeon',
 ]);
 
 // 따뜻한 음식 위로 모락모락 피어오르는 김 (Steam / Vapor) 파티클 컴포넌트
@@ -109,17 +111,93 @@ export const RealisticPochaFood: React.FC<RealisticPochaFoodProps> = ({
   scale = 1,
   position = [0, 0, 0],
   rotation = [0, 0, 0],
+  isEmpty = false,
 }) => {
   const isHotStew = HOT_STEW_ITEMS.has(itemId);
   const isHotAnju = HOT_ANJU_ITEMS.has(itemId);
 
   return (
     <group position={position} rotation={rotation} scale={[scale, scale, scale]}>
-      {/* 따뜻한 국물/뚝배기 메뉴: 풍성한 김 모락모락 */}
-      {isHotStew && <HotFoodSteam height={0.08} spread={0.06} intensity={1.15} />}
+      {/* 따뜻한 국물/뚝배기 메뉴: 풍성한 김 모락모락 (다 먹은 빈 그릇에는 피어오르지 않음) */}
+      {!isEmpty && isHotStew && <HotFoodSteam height={0.08} spread={0.06} intensity={1.15} />}
 
-      {/* 갓 볶아낸 따뜻한 안주 메뉴: 은은한 김 모락모락 */}
-      {isHotAnju && <HotFoodSteam height={0.04} spread={0.07} intensity={0.9} />}
+      {/* 갓 볶아낸 따뜻한 안주 메뉴: 은은한 김 모락모락 (다 먹은 빈 그릇에는 피어오르지 않음) */}
+      {!isEmpty && isHotAnju && <HotFoodSteam height={0.04} spread={0.07} intensity={0.9} />}
+
+      {/* 다 먹은 빈 안주 접시/뚝배기 전용 렌더링 (다 비운 빈 그릇이 테이블 위에 그대로 남음) */}
+      {isEmpty && itemId.startsWith('food_') ? (
+        <group>
+          {HOT_STEW_ITEMS.has(itemId) ? (
+            /* 다 비운 빈 뚝배기 그릇 */
+            <group>
+              <mesh position={[0, 0.045, 0]} castShadow receiveShadow>
+                <cylinderGeometry args={[0.13, 0.1, 0.09, 20, 1, true]} />
+                <meshStandardMaterial color="#222f3e" roughness={0.8} side={THREE.DoubleSide} />
+              </mesh>
+              <mesh position={[0, 0.005, 0]}>
+                <cylinderGeometry args={[0.1, 0.1, 0.01, 16]} />
+                <meshStandardMaterial color="#222f3e" roughness={0.8} />
+              </mesh>
+              {/* 바닥에 긁어먹고 남은 진한 국물 흔적 약간 */}
+              <mesh position={[0, 0.01, 0]}>
+                <cylinderGeometry args={[0.095, 0.095, 0.002, 16]} />
+                <meshStandardMaterial color="#d35400" roughness={0.4} />
+              </mesh>
+            </group>
+          ) : itemId === 'food_pajeon' ? (
+            /* 다 비운 빈 파전 도자기/채반 접시 */
+            <group>
+              <mesh position={[0, 0.012, 0]} receiveShadow>
+                <cylinderGeometry args={[0.165, 0.155, 0.016, 24]} />
+                <meshStandardMaterial color="#dfe6e9" roughness={0.4} />
+              </mesh>
+              {/* 접시 바닥에 살짝 남은 기름기 흔적 */}
+              <mesh position={[0, 0.021, 0]}>
+                <cylinderGeometry args={[0.13, 0.13, 0.002, 20]} />
+                <meshStandardMaterial color="#f5cd79" transparent opacity={0.25} roughness={0.2} />
+              </mesh>
+              {/* 양념 간장 종지 */}
+              <group position={[0.095, 0.022, 0.07]}>
+                <mesh>
+                  <cylinderGeometry args={[0.032, 0.024, 0.018, 14]} />
+                  <meshStandardMaterial color="#dfe6e9" metalness={0.7} />
+                </mesh>
+                <mesh position={[0, 0.007, 0]}>
+                  <cylinderGeometry args={[0.026, 0.026, 0.006, 12]} />
+                  <meshStandardMaterial color="#2d3436" roughness={0.1} />
+                </mesh>
+              </group>
+            </group>
+          ) : itemId === 'food_gyeranmari' ? (
+            /* 긴 사각 백자 접시 (깨끗하게 비워진 상태) */
+            <group>
+              <mesh position={[0, 0.015, 0]} receiveShadow>
+                <boxGeometry args={[0.34, 0.02, 0.14]} />
+                <meshStandardMaterial color="#ffffff" roughness={0.25} />
+              </mesh>
+              {/* 접시 표면에 살짝 묻은 케첩 자국 */}
+              <mesh position={[0.04, 0.026, 0.01]}>
+                <cylinderGeometry args={[0.015, 0.015, 0.002, 8]} />
+                <meshStandardMaterial color="#eb4d4b" transparent opacity={0.5} />
+              </mesh>
+            </group>
+          ) : (
+            /* 원형/타원 도자기 백자 접시 (깨끗하게 비워진 상태) */
+            <group>
+              <mesh position={[0, 0.015, 0]} receiveShadow>
+                <cylinderGeometry args={[0.155, 0.135, 0.02, 24]} />
+                <meshStandardMaterial color="#ffffff" roughness={0.25} />
+              </mesh>
+              {/* 접시 바닥에 양념 소스 흔적 약간 */}
+              <mesh position={[0, 0.026, 0]}>
+                <cylinderGeometry args={[0.07, 0.07, 0.002, 16]} />
+                <meshStandardMaterial color="#c0392b" transparent opacity={0.25} />
+              </mesh>
+            </group>
+          )}
+        </group>
+      ) : (
+        <>
       {/* 1. 주류: 테라 맥주 (초록병 + TERRA 라벨 + 맥주잔 거품) */}
       {itemId === 'beer_terra' && (
         <group>
@@ -254,6 +332,45 @@ export const RealisticPochaFood: React.FC<RealisticPochaFoodProps> = ({
             <mesh position={[0, 0.03, 0]}>
               <cylinderGeometry args={[0.024, 0.017, 0.055, 14]} />
               <meshStandardMaterial color="#fd79a8" roughness={0.1} transparent opacity={0.6} />
+            </mesh>
+          </group>
+        </group>
+      )}
+
+      {/* 4-B. 주류: 막걸리 (뽀얀 플라스틱 막걸리병 + 전통 양은 사발) */}
+      {itemId === 'drink_makgeolli' && (
+        <group>
+          {/* 뽀얀 막걸리병 본체 */}
+          <mesh position={[0, 0.1, 0]} castShadow>
+            <cylinderGeometry args={[0.038, 0.041, 0.17, 16]} />
+            <meshStandardMaterial color="#f8f9fa" roughness={0.35} metalness={0.05} />
+          </mesh>
+          {/* 병목 */}
+          <mesh position={[0, 0.205, 0]} castShadow>
+            <cylinderGeometry args={[0.017, 0.036, 0.06, 16]} />
+            <meshStandardMaterial color="#f8f9fa" roughness={0.35} />
+          </mesh>
+          {/* 초록색 뚜껑 */}
+          <mesh position={[0, 0.24, 0]}>
+            <cylinderGeometry args={[0.018, 0.018, 0.012, 12]} />
+            <meshStandardMaterial color="#27ae60" roughness={0.3} />
+          </mesh>
+          {/* 전통 누런 막걸리 종이 라벨 */}
+          <mesh position={[0, 0.1, 0]}>
+            <cylinderGeometry args={[0.042, 0.042, 0.07, 16]} />
+            <meshStandardMaterial color="#f1c40f" roughness={0.5} />
+          </mesh>
+          {/* 노란 양은 막걸리 사발(대접) */}
+          <group position={[0.11, 0, 0.02]}>
+            {/* 사발 외형 */}
+            <mesh position={[0, 0.022, 0]}>
+              <cylinderGeometry args={[0.036, 0.022, 0.042, 16]} />
+              <meshStandardMaterial color="#e5a93b" metalness={0.65} roughness={0.3} />
+            </mesh>
+            {/* 찰랑거리는 뽀얀 쌀 막걸리 */}
+            <mesh position={[0, 0.032, 0]}>
+              <cylinderGeometry args={[0.033, 0.021, 0.02, 14]} />
+              <meshStandardMaterial color="#fcfcfc" roughness={0.6} />
             </mesh>
           </group>
         </group>
@@ -778,6 +895,63 @@ export const RealisticPochaFood: React.FC<RealisticPochaFoodProps> = ({
         </group>
       )}
 
+      {/* 22. 안주: 노릇노릇 해물파전 (둥근 소쿠리 접시 + 바삭한 파전 + 송송 썬 쪽파와 홍고추 + 간장 종지) */}
+      {itemId === 'food_pajeon' && (
+        <group>
+          {/* 둥근 도자기/채반 접시 */}
+          <mesh position={[0, 0.012, 0]} receiveShadow>
+            <cylinderGeometry args={[0.165, 0.155, 0.016, 24]} />
+            <meshStandardMaterial color="#dfe6e9" roughness={0.4} />
+          </mesh>
+          {/* 노릇하게 부친 파전 베이스 */}
+          <mesh position={[0, 0.024, 0]} receiveShadow castShadow>
+            <cylinderGeometry args={[0.15, 0.15, 0.012, 24]} />
+            <meshStandardMaterial color="#f5cd79" roughness={0.6} />
+          </mesh>
+          {/* 노릇노릇 바삭한 부침 자국들 */}
+          {[-0.07, 0.05, -0.02, 0.08, -0.05].map((bx, bi) => (
+            <mesh key={bi} position={[bx, 0.031, ((bi * 4) % 9) * 0.02 - 0.08]}>
+              <cylinderGeometry args={[0.025, 0.025, 0.002, 10]} />
+              <meshStandardMaterial color="#d35400" roughness={0.7} />
+            </mesh>
+          ))}
+          {/* 송송 썬 초록 쪽파 줄기들 */}
+          {[-0.09, -0.05, -0.01, 0.03, 0.07].map((px, pi) => (
+            <group key={pi} position={[px, 0.032, 0]} rotation={[0, (pi * 0.3) - 0.3, 0]}>
+              <mesh position={[0, 0, 0]}>
+                <boxGeometry args={[0.012, 0.006, 0.16 - Math.abs(px) * 0.7]} />
+                <meshStandardMaterial color={pi % 2 === 0 ? '#218c74' : '#2ecc71'} roughness={0.5} />
+              </mesh>
+            </group>
+          ))}
+          {/* 송송 썬 빨간 홍고추 링 조각들 */}
+          {[-0.04, 0.06, -0.01, 0.04].map((rx, ri) => (
+            <mesh key={ri} position={[rx, 0.036, (ri % 2 === 0 ? 0.04 : -0.04)]} rotation={[Math.PI / 2, 0, ri]}>
+              <torusGeometry args={[0.014, 0.005, 6, 12]} />
+              <meshStandardMaterial color="#e74c3c" roughness={0.4} />
+            </mesh>
+          ))}
+          {/* 탱글탱글 오징어/해물 조각들 */}
+          {[-0.06, 0.02, 0.08].map((sx, si) => (
+            <mesh key={si} position={[sx, 0.034, (si === 1 ? 0.06 : -0.05)]} rotation={[0, si, 0]}>
+              <boxGeometry args={[0.03, 0.008, 0.015]} />
+              <meshStandardMaterial color="#f5f6fa" roughness={0.3} />
+            </mesh>
+          ))}
+          {/* 양념 간장 종지 */}
+          <group position={[0.095, 0.022, 0.07]}>
+            <mesh>
+              <cylinderGeometry args={[0.032, 0.024, 0.018, 14]} />
+              <meshStandardMaterial color="#dfe6e9" metalness={0.7} />
+            </mesh>
+            <mesh position={[0, 0.007, 0]}>
+              <cylinderGeometry args={[0.026, 0.026, 0.006, 12]} />
+              <meshStandardMaterial color="#2d3436" roughness={0.1} />
+            </mesh>
+          </group>
+        </group>
+      )}
+
       {/* 기본 폴백: 맛있는 포차 안주 접시 */}
       {![
         'beer_terra',
@@ -786,6 +960,7 @@ export const RealisticPochaFood: React.FC<RealisticPochaFoodProps> = ({
         'drink_grapefruit',
         'drink_cheongha',
         'drink_maehwasu',
+        'drink_makgeolli',
         'bev_cola',
         'bev_cider',
         'food_ramen',
@@ -808,6 +983,7 @@ export const RealisticPochaFood: React.FC<RealisticPochaFoodProps> = ({
         'food_seokgul',
         'food_ojingeo_dechim',
         'food_eunhaeng',
+        'food_pajeon',
       ].includes(itemId) && (
         <group>
           <mesh position={[0, 0.015, 0]} receiveShadow>
@@ -819,6 +995,8 @@ export const RealisticPochaFood: React.FC<RealisticPochaFoodProps> = ({
             <meshStandardMaterial color="#e17055" roughness={0.5} />
           </mesh>
         </group>
+      )}
+        </>
       )}
     </group>
   );

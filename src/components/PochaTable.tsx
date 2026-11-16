@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { ChairSlot } from '../types';
 import { RealisticPochaFood } from './RealisticPochaFood';
@@ -49,6 +49,12 @@ export const PochaTable: React.FC<PochaTableProps> = ({
 }) => {
   const [hoveredChair, setHoveredChair] = useState<string | null>(null);
 
+  useEffect(() => {
+    return () => {
+      document.body.style.cursor = 'auto';
+    };
+  }, []);
+
   const hasDrink = !!servedOrder?.hasDrink;
   const hasFood = !!servedOrder?.hasFood;
 
@@ -75,23 +81,23 @@ export const PochaTable: React.FC<PochaTableProps> = ({
     return { dirX, dirZ, leftX, leftZ, rightX, rightZ };
   }, [myChair, position]);
 
-  // 서빙된 모든 안주 목록 (배열 우선, 단일 필드 하위 호환)
+  // 서빙된 모든 안주 목록 (추가 주문 시 이전 다 먹은 빈 접시도 테이블 위에 그대로 보존)
   const servedFoods = useMemo(() => {
     if (servedOrder?.foods && servedOrder.foods.length > 0) {
-      return servedOrder.foods.filter((f) => f.foodCount > 0);
+      return servedOrder.foods;
     }
-    if (hasFood && servedOrder?.foodId && (servedOrder?.foodCount ?? 8) > 0) {
+    if (hasFood && servedOrder?.foodId) {
       return [{ foodId: servedOrder.foodId, foodCount: servedOrder.foodCount ?? 8 }];
     }
     return [];
   }, [servedOrder, hasFood]);
 
-  // 서빙된 모든 음료/주류 목록 (배열 우선, 단일 필드 하위 호환)
+  // 서빙된 모든 음료/주류 목록 (추가 주문 시 이전 다 마신 빈 술병도 테이블 위에 그대로 보존)
   const servedDrinks = useMemo(() => {
     if (servedOrder?.drinks && servedOrder.drinks.length > 0) {
-      return servedOrder.drinks.filter((d) => d.drinkCount > 0);
+      return servedOrder.drinks;
     }
-    if (hasDrink && servedOrder?.drinkId && (servedOrder?.drinkCount ?? 8) > 0) {
+    if (hasDrink && servedOrder?.drinkId) {
       return [{
         drinkId: servedOrder.drinkId,
         drinkCount: servedOrder.drinkCount ?? (servedOrder.drinkId.startsWith('bev_') ? 3 : 8),
@@ -236,13 +242,15 @@ export const PochaTable: React.FC<PochaTableProps> = ({
       <group position={[0, 0.76, 0]}>
         {/* A. 주류/음료 서빙 완료 시 나타나는 병/캔과 잔 (추가 주문 시 나란히 늘어섬) */}
         {servedDrinks.map((drinkItem, dIdx) => {
-          // 캐릭터가 술을 따르는 중(isPouringAction)일 때, 현재 마시는 첫 번째 음료는 손에 쥐므로 테이블에서만 일시 숨김
-          const isPouringThis = isPouringAction && mySeatedChairId && dIdx === 0;
+          // 캐릭터가 술을 따르는 중(isPouringAction)일 때, 현재 마시는 첫 번째 활성 음료는 손에 쥐므로 테이블에서만 일시 숨김
+          const firstActiveDrinkIdx = servedDrinks.findIndex((d) => d.drinkCount > 0);
+          const isPouringThis = isPouringAction && mySeatedChairId && dIdx === firstActiveDrinkIdx;
           if (isPouringThis) return null;
 
           const isBev = drinkItem.drinkId.startsWith('bev_');
           const maxCount = isBev ? 3 : 8;
-          const drinkScale = 0.7 + ((drinkItem.drinkCount ?? maxCount) / maxCount) * 0.3;
+          const isDrinkEmpty = (drinkItem.drinkCount ?? 0) === 0;
+          const drinkScale = isDrinkEmpty ? 0.85 : 0.7 + ((drinkItem.drinkCount ?? maxCount) / maxCount) * 0.3;
 
           return (
             <RealisticPochaFood
@@ -251,13 +259,15 @@ export const PochaTable: React.FC<PochaTableProps> = ({
               position={getDrinkPosition(dIdx, servedDrinks.length)}
               rotation={myChair ? [0, myChair.rotation + Math.PI, 0] : [0, 0, 0]}
               scale={drinkScale}
+              isEmpty={isDrinkEmpty}
             />
           );
         })}
 
         {/* B. 안주 서빙 완료 시 나타나는 음식 요리 접시/냄비/뚝배기 (추가 주문 시 테이블 위에 함께 정갈하게 배치) */}
         {servedFoods.map((foodItem, fIdx) => {
-          const foodScale = 0.6 + ((foodItem.foodCount ?? 8) / 8) * 0.4;
+          const isFoodEmpty = (foodItem.foodCount ?? 0) === 0;
+          const foodScale = isFoodEmpty ? 0.75 : 0.6 + ((foodItem.foodCount ?? 8) / 8) * 0.4;
           return (
             <RealisticPochaFood
               key={`food_${foodItem.foodId}_${fIdx}`}
@@ -265,6 +275,7 @@ export const PochaTable: React.FC<PochaTableProps> = ({
               position={getFoodPosition(fIdx, servedFoods.length)}
               rotation={myChair ? [0, myChair.rotation + (fIdx % 2 === 1 ? 0.3 : 0), 0] : [0, 0, 0]}
               scale={foodScale}
+              isEmpty={isFoodEmpty}
             />
           );
         })}
@@ -301,21 +312,48 @@ export const PochaTable: React.FC<PochaTableProps> = ({
             onPointerOver={(e) => {
               e.stopPropagation();
               setHoveredChair(chair.id);
+              document.body.style.cursor = 'pointer';
             }}
-            onPointerOut={() => setHoveredChair(null)}
+            onPointerOut={() => {
+              setHoveredChair(null);
+              document.body.style.cursor = 'auto';
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSitChair(chair);
+            }}
           >
-            {/* 의자 클릭 히트박스 */}
-            <mesh
-              position={[0, 0.44, 0]}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSitChair(chair);
-              }}
-              visible={false}
-            >
-              <cylinderGeometry args={[0.35, 0.35, 0.9, 16]} />
-              <meshBasicMaterial transparent opacity={0} />
+            {/* 1. 의자 실제 크기에 정확히 맞춘 정밀 히트박스 (높이 0.47m 이하로 제한하여 의자 위 허공에 마우스가 떠 있을 땐 선택되지 않음) */}
+            <mesh position={[0, 0.235, 0]}>
+              <cylinderGeometry args={[0.195, 0.215, 0.47, 16]} />
+              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
             </mesh>
+
+            {/* 2. 마우스 호버 시 선택 가이드 발광 링 (시트 상단 및 바닥 인디케이터) */}
+            {isHovered && !isMySeat && (
+              <group raycast={() => null}>
+                {/* 시트 위 황금빛 테두리 링 */}
+                <mesh position={[0, 0.47, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                  <ringGeometry args={[0.13, 0.19, 24]} />
+                  <meshBasicMaterial
+                    color={isOccupied ? '#ff7675' : '#f1c40f'}
+                    transparent
+                    opacity={0.85}
+                    side={THREE.DoubleSide}
+                  />
+                </mesh>
+                {/* 바닥 착석 유도 링 */}
+                <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                  <ringGeometry args={[0.22, 0.28, 24]} />
+                  <meshBasicMaterial
+                    color={isOccupied ? '#ff7675' : '#f1c40f'}
+                    transparent
+                    opacity={0.45}
+                    side={THREE.DoubleSide}
+                  />
+                </mesh>
+              </group>
+            )}
 
             {/* A. 플라스틱 본체 상단 림 (빨강 or 파랑 사출) */}
             <mesh position={[0, 0.44, 0]} castShadow>
@@ -324,7 +362,7 @@ export const PochaTable: React.FC<PochaTableProps> = ({
                 color={stoolBaseColor}
                 roughness={0.45}
                 emissive={isHovered && !isOccupied ? '#f39c12' : '#000000'}
-                emissiveIntensity={0.25}
+                emissiveIntensity={isHovered ? 0.75 : 0.25}
               />
             </mesh>
 

@@ -211,6 +211,7 @@ export const MenuModal: React.FC<MenuModalProps> = ({
                     {renderRow(drinks[3], '청　　하')}
                     {renderRow(drinks[4], '매 화 수')}
                     {renderRow(drinks[5], '자몽에이슬')}
+                    {drinks[6] && renderRow(drinks[6], '막 걸 리')}
                   </div>
                 </div>
 
@@ -322,7 +323,7 @@ export const MenuModal: React.FC<MenuModalProps> = ({
                   {renderRow(snacksLeft[6], '꽁치구이')}
                 </div>
 
-                {/* 오른쪽 안주 리스트 (6개) */}
+                {/* 오른쪽 안주 리스트 (7개) */}
                 <div className="space-y-[1px]">
                   {renderRow(snacksRight[0], '꼬　　막')}
                   {renderRow(snacksRight[1], '피 꼬 막')}
@@ -330,6 +331,7 @@ export const MenuModal: React.FC<MenuModalProps> = ({
                   {renderRow(snacksRight[3], '계란말이')}
                   {renderRow(snacksRight[4], '오징어데침')}
                   {renderRow(snacksRight[5], '은행구이')}
+                  {snacksRight[6] && renderRow(snacksRight[6], '파　　전')}
                 </div>
               </div>
             </div>

@@ -20,6 +20,7 @@ export const GrandmaBoss: React.FC<GrandmaBossProps> = ({
   const bossGroupRef = useRef<THREE.Group>(null);
   const ladleRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
+  const leftHandRef = useRef<THREE.Group>(null);
   const trayRef = useRef<THREE.Group>(null);
 
   // 기본 주방 위치 및 통로 웨이포인트 (카운터 및 테이블을 관통하지 않는 직각 복도 보행 시스템)
@@ -32,8 +33,26 @@ export const GrandmaBoss: React.FC<GrandmaBossProps> = ({
   const [currentOrder, setCurrentOrder] = useState<ServingOrder | null>(null);
   const [dialogueIdx, setDialogueIdx] = useState(0);
   const [speechText, setSpeechText] = useState<string | null>(null);
+  const [greetingState, setGreetingState] = useState<'none' | 'welcome' | 'goodbye'>('none');
+  const [greetingSpeech, setGreetingSpeech] = useState<string | null>(null);
+  const greetingTimerRef = useRef<any>(null);
   const [isDelivered, setIsDelivered] = useState<boolean>(false); // 손님 테이블에 배달 완료 시 서빙 쟁반 위 메뉴 제거 상태
   const isDeliveredRef = useRef<boolean>(false);
+
+  // 손님 맞이 환영 및 배웅 인사 대사 모음
+  const WELCOME_GREETINGS = [
+    '어머 어서 와요~ 편한 자리로 편하게 앉아요!',
+    '반가워요 손님! 따뜻하게 몸 좀 녹이고 가요~',
+    '어서와요~ 오늘 하루도 정말 고생 많았지요?',
+    '어서 와요! 맛있는 안주랑 따끈한 국물 준비해줄게요~',
+  ];
+
+  const GOODBYE_GREETINGS = [
+    '조심히 들어가요~ 밤길 조심하고 또 들러요!',
+    '오늘도 수고 많았어요! 따뜻하고 편안한 밤 보내요~',
+    '잘 가요~ 힘든 일 있으면 언제든 또 쉬러 와요!',
+    '조심히 가요! 든든하게 먹었으니 내일도 힘내요~',
+  ];
 
   // 현재 사장님 위치 및 회전
   const currentPos = useRef<[number, number, number]>([0, 0, -4.8]);
@@ -49,6 +68,47 @@ export const GrandmaBoss: React.FC<GrandmaBossProps> = ({
     '여기선 아무 걱정 말고 한잔 털어내요.',
     '밤바람이 쌀쌀하죠? 국물 더 줄까요?',
   ];
+
+  // 손님 입장 및 퇴장 이벤트 수신 (주인장의 따뜻한 인사 및 손 흔들기)
+  useEffect(() => {
+    const handleCustomerEnter = (e: Event) => {
+      const customEvent = e as CustomEvent<{ nickname?: string }>;
+      const nickname = customEvent.detail?.nickname;
+      const greeting = nickname
+        ? `어머, ${nickname} 손님 어서 와요~ 편한 자리로 앉아요!`
+        : WELCOME_GREETINGS[Math.floor(Math.random() * WELCOME_GREETINGS.length)];
+
+      setGreetingState('welcome');
+      setGreetingSpeech(greeting);
+
+      if (greetingTimerRef.current) clearTimeout(greetingTimerRef.current);
+      greetingTimerRef.current = setTimeout(() => {
+        setGreetingState('none');
+        setGreetingSpeech(null);
+      }, 5000);
+    };
+
+    const handleCustomerExit = () => {
+      const greeting = GOODBYE_GREETINGS[Math.floor(Math.random() * GOODBYE_GREETINGS.length)];
+      setGreetingState('goodbye');
+      setGreetingSpeech(greeting);
+
+      if (greetingTimerRef.current) clearTimeout(greetingTimerRef.current);
+      greetingTimerRef.current = setTimeout(() => {
+        setGreetingState('none');
+        setGreetingSpeech(null);
+      }, 5000);
+    };
+
+    window.addEventListener('pocha_customer_enter', handleCustomerEnter);
+    window.addEventListener('pocha_customer_exit', handleCustomerExit);
+
+    return () => {
+      window.removeEventListener('pocha_customer_enter', handleCustomerEnter);
+      window.removeEventListener('pocha_customer_exit', handleCustomerExit);
+      if (greetingTimerRef.current) clearTimeout(greetingTimerRef.current);
+    };
+  }, []);
 
   // 메뉴 주문 이벤트 수신 (주인장이 직접 메뉴 들고 서빙)
   useEffect(() => {
@@ -117,15 +177,96 @@ export const GrandmaBoss: React.FC<GrandmaBossProps> = ({
     }
 
     if (bossState === 'cooking' || bossState === 'preparing') {
-      // 주방 조리대 대기 (preparing 시 쟁반 들고 손님 정면 응시하며 1초 대기)
+      // 주방 조리대 대기
       currentPos.current = [HOME_POS[0], 0, HOME_POS[2]];
-      currentRot.current = 0; // 정면 응시
 
-      if (bossState === 'cooking' && ladleRef.current) {
-        ladleRef.current.position.x = -1.1 + Math.cos(time * 2.2) * 0.12;
-        ladleRef.current.position.z = Math.sin(time * 2.2) * 0.12;
-        ladleRef.current.rotation.z = Math.sin(time * 2.2) * 0.25;
-        ladleRef.current.position.y = 1.05 + Math.sin(time * 4) * 0.03;
+      if (greetingState !== 'none' && bossState === 'cooking') {
+        // 손님이 오거나 나갈 때: 손님/입구 쪽 정면을 응시하며 손을 흔들고 따뜻한 인사!
+        currentRot.current = 0;
+
+        // 왼손을 번쩍 들어 손을 흔듦
+        if (leftHandRef.current) {
+          leftHandRef.current.position.set(
+            0.42,
+            1.32 + Math.sin(time * 5) * 0.04,
+            0.22
+          );
+          leftHandRef.current.rotation.set(
+            0,
+            0,
+            Math.sin(time * 7) * 0.35 - 0.2
+          );
+        }
+
+        // 오른손 국자는 조리대에 편안히 내려놓음
+        if (ladleRef.current) {
+          ladleRef.current.position.set(-1.0, 1.0, 0);
+          ladleRef.current.rotation.set(0, 0, 0);
+        }
+
+        // 머리: 반갑게 손님을 보며 고개 끄덕끄덕 인사
+        if (headRef.current) {
+          headRef.current.rotation.x = 0.12 + Math.abs(Math.sin(time * 3.5)) * 0.18;
+          headRef.current.rotation.y = Math.sin(time * 1.5) * 0.08;
+        }
+      } else if (bossState === 'cooking') {
+        // 평시 요리 중: 12초 주기 모션 순환 (가만히 있지 않고 부지런히 요리)
+        // 0~6.5초: 어묵탕 냄비 휘휘 젓기
+        // 6.5~10초: 국자 들어 냄새 맡고 간 보기
+        // 10~12초: 흡족하게 끄덕이며 포차 둘러보기
+        currentRot.current = 0;
+        const cookCycle = time % 12;
+
+        if (cookCycle < 6.5) {
+          // 1) 국자로 어묵탕 휘휘 젓기
+          if (ladleRef.current) {
+            ladleRef.current.position.x = -1.1 + Math.cos(time * 2.6) * 0.14;
+            ladleRef.current.position.z = Math.sin(time * 2.6) * 0.14;
+            ladleRef.current.rotation.z = Math.sin(time * 2.6) * 0.3;
+            ladleRef.current.rotation.x = Math.cos(time * 2.6) * 0.15;
+            ladleRef.current.position.y = 1.05 + Math.sin(time * 5) * 0.02;
+          }
+          if (leftHandRef.current) {
+            leftHandRef.current.position.set(0.45, 0.98, 0.25);
+            leftHandRef.current.rotation.set(0, 0, 0);
+          }
+          if (headRef.current) {
+            headRef.current.rotation.x = 0.22 + Math.sin(time * 2.6) * 0.05;
+            headRef.current.rotation.y = -0.12;
+          }
+        } else if (cookCycle < 10.0) {
+          // 2) 국자 올려서 후후 불고 간 보기
+          if (ladleRef.current) {
+            const p = Math.min(1.0, (cookCycle - 6.5) / 1.0);
+            ladleRef.current.position.x = THREE.MathUtils.lerp(-1.1, -0.85, p);
+            ladleRef.current.position.y = THREE.MathUtils.lerp(1.05, 1.25, p) + Math.sin(time * 3) * 0.02;
+            ladleRef.current.position.z = THREE.MathUtils.lerp(0, 0.22, p);
+            ladleRef.current.rotation.z = THREE.MathUtils.lerp(0, -0.28, p);
+            ladleRef.current.rotation.x = THREE.MathUtils.lerp(0, -0.2, p);
+          }
+          if (leftHandRef.current) {
+            leftHandRef.current.position.set(0.40, 1.06, 0.28);
+            leftHandRef.current.rotation.set(0.2, 0, -0.15);
+          }
+          if (headRef.current) {
+            headRef.current.rotation.x = 0.18 + Math.sin(time * 3) * 0.08;
+            headRef.current.rotation.y = -0.22;
+          }
+        } else {
+          // 3) 국자 살짝 내리고 흡족하게 고개 끄덕끄덕 포차 둘러보기
+          if (ladleRef.current) {
+            ladleRef.current.position.set(-1.1, 1.05, 0);
+            ladleRef.current.rotation.set(0, 0, 0);
+          }
+          if (leftHandRef.current) {
+            leftHandRef.current.position.set(0.45, 0.98, 0.25);
+            leftHandRef.current.rotation.set(0, 0, 0);
+          }
+          if (headRef.current) {
+            headRef.current.rotation.x = 0.08 + Math.abs(Math.sin(time * 2.5)) * 0.14;
+            headRef.current.rotation.y = Math.sin(time * 1.2) * 0.18;
+          }
+        }
       }
     } else if (bossState === 'walk_to_table') {
       // 테이블로 걸어가기 (웨이포인트를 순차적으로 이동하여 손님 앞까지 확실하게 도착)
@@ -321,13 +462,13 @@ export const GrandmaBoss: React.FC<GrandmaBossProps> = ({
       }
     }
 
-    // 고개 끄덕임 및 서빙 시 다정한 인사 끄덕임
+    // 고개 끄덕임 및 서빙/보행 시 다정한 인사 끄덕임
     if (headRef.current) {
       if (bossState === 'serving') {
         // 서빙 시 정성스러운 고개 끄덕임 인사 2회
         headRef.current.rotation.x = 0.12 + Math.abs(Math.sin(serveTimer.current * 3.5)) * 0.22;
         headRef.current.rotation.y = Math.sin(serveTimer.current * 1.5) * 0.08;
-      } else {
+      } else if (bossState === 'walk_to_table' || bossState === 'walk_to_kitchen') {
         headRef.current.rotation.x = Math.sin(time * 1.5) * 0.05 + 0.08;
         headRef.current.rotation.y = Math.sin(time * 0.8) * 0.1;
       }
@@ -354,13 +495,17 @@ export const GrandmaBoss: React.FC<GrandmaBossProps> = ({
         <group position={[0, 0.28, 0]}>
           <Text
             fontSize={0.14}
-            color={speechText ? '#ffeaa7' : '#ffffff'}
+            color={greetingSpeech || speechText ? '#ffeaa7' : '#ffffff'}
             anchorX="center"
             anchorY="middle"
             outlineWidth={0.02}
             outlineColor="#192a56"
           >
-            {speechText ? `"${speechText}"` : `"${DIALOGUES[dialogueIdx]}"`}
+            {greetingSpeech
+              ? `"${greetingSpeech}"`
+              : speechText
+              ? `"${speechText}"`
+              : `"${DIALOGUES[dialogueIdx]}"`}
           </Text>
         </group>
       </Billboard>
@@ -438,11 +583,13 @@ export const GrandmaBoss: React.FC<GrandmaBossProps> = ({
             </mesh>
           </group>
 
-          {/* 왼손 */}
-          <mesh position={[0.45, 0.98, 0.25]}>
-            <sphereGeometry args={[0.06, 12, 12]} />
-            <meshStandardMaterial color="#ffeaa7" />
-          </mesh>
+          {/* 왼손 (인사할 땐 손을 흔들고, 요리할 땐 냄비나 조리대를 짚음) */}
+          <group ref={leftHandRef} position={[0.45, 0.98, 0.25]}>
+            <mesh>
+              <sphereGeometry args={[0.06, 12, 12]} />
+              <meshStandardMaterial color="#ffeaa7" />
+            </mesh>
+          </group>
         </>
       )}
 

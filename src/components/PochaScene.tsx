@@ -70,6 +70,14 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
   const controlsRef = useRef<any>(null);
   const { camera, size } = useThree();
 
+  // 처음 접속 시 3단계 축소된 쾌적한 전경 시점 초기화 (타겟을 플레이어 상체로 정렬)
+  useEffect(() => {
+    if (controlsRef.current) {
+      controlsRef.current.target.set(0, 0.75, 4.4);
+      controlsRef.current.update();
+    }
+  }, []);
+
   // 모바일 세로 화면(Portrait, 종횡비 < 1) 시 수평 화각이 좁아져 화면이 파묻히거나 어둡게 보이는 현상 방지
   useEffect(() => {
     if (camera instanceof THREE.PerspectiveCamera) {
@@ -103,74 +111,74 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
     }
   }, [isExiting]);
 
-  // 날씨 및 분위기 테마별 조명/안개 감성 파라미터 구성
+  // 날씨 및 분위기 테마별 조명/안개 감성 파라미터 구성 (심야의 어둑하고 아늑한 혼술 감성)
   const moodConfig = useMemo(() => {
     switch (weatherMood) {
       case 'snowy':
         return {
-          fogColor: '#161f28',
+          fogColor: '#0c1218',
           fogNear: 22,
           fogFar: 85,
-          ambientColor: '#c5d1de',
-          ambientIntensity: 1.25,
+          ambientColor: '#a4b0be',
+          ambientIntensity: 0.7,
           dirLightColor: '#ffffff',
-          dirLightIntensity: 1.45,
+          dirLightIntensity: 0.9,
           dirLightPos: [8, 14, 10] as [number, number, number],
           pochaLightColor: '#ff9f43',
-          pochaLightIntensity: 2.8,
+          pochaLightIntensity: 1.8,
         };
       case 'autumn':
         return {
-          fogColor: '#1a1412',
+          fogColor: '#0e0907',
           fogNear: 22,
           fogFar: 90,
-          ambientColor: '#f39c12',
-          ambientIntensity: 1.2,
-          dirLightColor: '#f39c12',
-          dirLightIntensity: 1.5,
+          ambientColor: '#d35400',
+          ambientIntensity: 0.65,
+          dirLightColor: '#e67e22',
+          dirLightIntensity: 0.85,
           dirLightPos: [9, 13, 8] as [number, number, number],
           pochaLightColor: '#e67e22',
-          pochaLightIntensity: 2.9,
+          pochaLightIntensity: 1.9,
         };
       case 'sunset':
         return {
-          fogColor: '#2d142c',
+          fogColor: '#170b17',
           fogNear: 25,
           fogFar: 95,
-          ambientColor: '#e056fd',
-          ambientIntensity: 1.15,
-          dirLightColor: '#ff7675',
-          dirLightIntensity: 1.5,
+          ambientColor: '#8e44ad',
+          ambientIntensity: 0.6,
+          dirLightColor: '#d63031',
+          dirLightIntensity: 0.85,
           dirLightPos: [12, 7, 10] as [number, number, number],
-          pochaLightColor: '#f0932b',
-          pochaLightIntensity: 2.5,
+          pochaLightColor: '#e17055',
+          pochaLightIntensity: 1.7,
         };
       case 'starry':
         return {
-          fogColor: '#070b14',
+          fogColor: '#030509',
           fogNear: 28,
           fogFar: 110,
-          ambientColor: '#70a1ff',
-          ambientIntensity: 1.05,
-          dirLightColor: '#c7ecee',
-          dirLightIntensity: 1.25,
+          ambientColor: '#3742fa',
+          ambientIntensity: 0.55,
+          dirLightColor: '#70a1ff',
+          dirLightIntensity: 0.75,
           dirLightPos: [8, 14, 10] as [number, number, number],
           pochaLightColor: '#f9ca24',
-          pochaLightIntensity: 2.6,
+          pochaLightIntensity: 1.7,
         };
       case 'rainy':
       default:
         return {
-          fogColor: '#0e1117',
+          fogColor: '#080a0e',
           fogNear: 24,
           fogFar: 90,
-          ambientColor: '#ffb169',
-          ambientIntensity: 1.25,
-          dirLightColor: '#fff2cc',
-          dirLightIntensity: 1.45,
+          ambientColor: '#e67e22',
+          ambientIntensity: 0.65,
+          dirLightColor: '#ffeaa7',
+          dirLightIntensity: 0.85,
           dirLightPos: [8, 14, 10] as [number, number, number],
           pochaLightColor: '#f39c12',
-          pochaLightIntensity: 3.2,
+          pochaLightIntensity: 1.9,
         };
     }
   }, [weatherMood]);
@@ -655,12 +663,12 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
         <fog attach="fog" args={[moodConfig.fogColor, Math.max(30, moodConfig.fogNear), Math.max(95, moodConfig.fogFar)]} />
       )}
 
-      {/* 1. 환경광 (Ambient Light): 모바일 PBR 쉐이더에서도 텐트와 캐릭터가 선명하게 살아나도록 충분한 조도 제공 */}
-      <ambientLight intensity={isMobile ? 1.85 : Math.max(1.35, moodConfig.ambientIntensity)} color={moodConfig.ambientColor} />
+      {/* 1. 환경광 (Ambient Light): 어둑어둑하고 아늑한 심야 포차 감성 연출 */}
+      <ambientLight intensity={isMobile ? 0.95 : Math.max(0.65, moodConfig.ambientIntensity)} color={moodConfig.ambientColor} />
 
-      {/* 2. 반구 조명 (Hemisphere Light): 하늘빛과 지면 반사광을 부드럽게 채워 모바일에서 메쉬가 절대 검게 죽지 않도록 방지 */}
+      {/* 2. 반구 조명 (Hemisphere Light): 하늘빛과 지면 반사광을 차분하게 연출 */}
       <hemisphereLight
-        args={[moodConfig.dirLightColor, '#3d2b1f', isMobile ? 1.35 : 0.75]}
+        args={[moodConfig.dirLightColor, '#271b12', isMobile ? 0.65 : 0.4]}
       />
 
       {/* 3. 직사광 (Directional Light): 모바일에서는 shadow 비활성화로 GPU 과부하 및 블랙아웃 방지 */}

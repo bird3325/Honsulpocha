@@ -25,7 +25,6 @@ interface ActionOverlayProps {
   isWaiting?: boolean;
   waitingNumber?: number;
   onCancelWaiting?: () => void;
-  onRequestWaiting?: () => void;
 }
 
 export const ActionOverlay: React.FC<ActionOverlayProps> = ({
@@ -48,7 +47,6 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
   isWaiting = false,
   waitingNumber = 1,
   onCancelWaiting,
-  onRequestWaiting,
 }) => {
   const isMobile = useIsMobile();
   const isSitting = !!currentChair;
@@ -262,11 +260,15 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
               {isOrdered && (
                 <button
                   onClick={onToggleAutoMode}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-purple-950/85 hover:bg-purple-900/90 text-purple-200 border border-purple-400/30 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-lg w-full justify-center"
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-lg w-full justify-center ${
+                    isAutoMode
+                      ? 'bg-purple-600 text-white animate-pulse shadow-purple-500/40'
+                      : 'bg-purple-950/85 hover:bg-purple-900/90 text-purple-200 border border-purple-400/30'
+                  }`}
                   title="메뉴 주문 후 혼자 조용히 사색하며 마시는 오토모드 ON/OFF"
                 >
                   <Sparkles size={15} className="text-amber-300" />
-                  <span>사색</span>
+                  <span>{isAutoMode ? '사색중' : '사색'}</span>
                 </button>
               )}
 
@@ -347,11 +349,15 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
               {isOrdered && (
                 <button
                   onClick={onToggleAutoMode}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-950/85 hover:bg-purple-900/90 text-purple-200 border border-purple-400/30 rounded-full text-sm font-bold transition-all cursor-pointer active:scale-95 shadow-lg"
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-bold transition-all cursor-pointer active:scale-95 shadow-lg ${
+                    isAutoMode
+                      ? 'bg-purple-600 text-white animate-pulse shadow-purple-500/40'
+                      : 'bg-purple-950/85 hover:bg-purple-900/90 text-purple-200 border border-purple-400/30'
+                  }`}
                   title="메뉴 주문 후 혼자 조용히 사색하며 마시는 오토모드 ON/OFF"
                 >
                   <Sparkles size={15} className="text-amber-300" />
-                  <span>사색</span>
+                  <span>{isAutoMode ? '사색중' : '사색'}</span>
                 </button>
               )}
 
@@ -411,6 +417,8 @@ export const ActionOverlay: React.FC<ActionOverlayProps> = ({
               : '🍽️ 테이블 위의 술과 안주를 모두 비웠습니다! [메뉴판]을 열어 새 메뉴를 주문하거나 [나가기]를 누르세요.'
             : isSitting
             ? '📋 [메뉴판]을 열어 메뉴를 주문하시면 [한잔], [먹기], [사색]이 활성화됩니다.'
+            : isWaiting
+            ? '⏳ 웨이팅 대기 중입니다. 자리가 나면 사장님이 불러드립니다.'
             : '🐾 빈 의자를 클릭하여 착석하거나 [나가기]를 눌러 언제든 귀가할 수 있습니다.'}
         </div>
       </div>

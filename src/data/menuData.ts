@@ -66,6 +66,17 @@ export const POCHA_MENUS: PochaMenuItem[] = [
     icon: '🍹',
     section: 'drink',
   },
+  {
+    id: 'drink_makgeolli',
+    name: '막걸리',
+    enName: 'Makgeolli',
+    hanja: '马格利',
+    category: 'drink',
+    price: '5,000',
+    desc: '구수하고 톡 쏘는 시원한 생막걸리',
+    icon: '🍶',
+    section: 'drink',
+  },
 
   // 2. 음료 (Beverage)
   {
@@ -316,6 +327,17 @@ export const POCHA_MENUS: PochaMenuItem[] = [
     price: '10,000',
     desc: '버터 향 솔솔, 짭조름하게 볶은 고소한 은행',
     icon: '🥜',
+    section: 'snack',
+  },
+  {
+    id: 'food_pajeon',
+    name: '파전',
+    enName: 'Pajeon',
+    hanja: '葱饼',
+    category: 'food',
+    price: '6,000',
+    desc: '쪽파를 듬뿍 넣어 바삭하고 노릇하게 부쳐낸 파전',
+    icon: '🥞',
     section: 'snack',
   },
 ];

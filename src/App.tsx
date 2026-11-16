@@ -14,6 +14,7 @@ import { useIsMobile } from './hooks/useIsMobile';
 import { ChairSlot, PlayerAction, WeatherMood, PochaMenuItem } from './types';
 import { TableServing } from './components/PochaTable';
 import { soundManager } from './components/AudioController';
+import { POCHA_MENUS } from './data/menuData';
 
 export const App: React.FC = () => {
   const isMobile = useIsMobile();
@@ -122,6 +123,15 @@ export const App: React.FC = () => {
     onMyPlayerCreated: () => { },
   });
 
+  // 다른 손님 입장 감지 시 사장님 환영 이벤트 발송
+  const prevOtherPlayerCount = React.useRef(otherPlayers.size);
+  React.useEffect(() => {
+    if (otherPlayers.size > prevOtherPlayerCount.current) {
+      window.dispatchEvent(new CustomEvent('pocha_customer_enter'));
+    }
+    prevOtherPlayerCount.current = otherPlayers.size;
+  }, [otherPlayers.size]);
+
   // 포차 웨이팅(대기열) 시스템 상태
   const [isWaitingModalOpen, setIsWaitingModalOpen] = useState<boolean>(false);
   const [waitingMode, setWaitingMode] = useState<'register' | 'called'>('register');
@@ -185,14 +195,17 @@ export const App: React.FC = () => {
     }, 2500);
   };
 
-  // 외부(버튼/씬)에서 웨이팅 모달 호출 이벤트 수신
+  // 만석 시 외부(씬)에서 웨이팅 모달 호출 이벤트 수신
   React.useEffect(() => {
     const handleOpenWaiting = () => {
       setWaitingMode('register');
       setIsWaitingModalOpen(true);
     };
+
     window.addEventListener('pocha_request_waiting', handleOpenWaiting);
-    return () => window.removeEventListener('pocha_request_waiting', handleOpenWaiting);
+    return () => {
+      window.removeEventListener('pocha_request_waiting', handleOpenWaiting);
+    };
   }, []);
 
   // 메뉴판에서 주문 완료 후 한잔/먹기 버튼 활성화 상태
@@ -204,6 +217,8 @@ export const App: React.FC = () => {
   // 혼술 사색 오토모드 상태 및 독백 텍스트
   const [isAutoMode, setIsAutoMode] = useState<boolean>(false);
   const [autoThought, setAutoThought] = useState<string | null>(null);
+  const isAutoModeRef = React.useRef(isAutoMode);
+  isAutoModeRef.current = isAutoMode;
 
   // 사색 모드 독백 문구 모음 (홀짝 마시기 / 안주 먹기 / 조용한 생각)
   const DRINK_THOUGHTS = [
@@ -223,6 +238,8 @@ export const App: React.FC = () => {
     "우물우물... 크, 역시 포차 안주가 최고야. 속이 든든하네.",
     "냠냠... 따끈한 온기가 입안 가득 퍼진다. 참 맛있다.",
     "쩝쩝... 안주 한 점에 소주 한잔, 이보다 완벽할 순 없지.",
+    "바삭바삭... 캬, 노릇한 파전에 한잔 들이켜니 이보다 완벽할 순 없지.",
+    "우물우물... 역시 술 한잔 털어넣고 바로 먹는 안주가 꿀맛이야.",
   ];
 
   const CONTEMPLATION_THOUGHTS = [
@@ -232,9 +249,10 @@ export const App: React.FC = () => {
     "복잡한 생각은 잠시 비워두고 이 포근한 밤에 집중하자.",
     "세상이 아무리 바빠도, 여기선 시간이 멈춘 것만 같아.",
     "조용한 혼술의 여운이 가슴 깊이 스며든다...",
+    "빗소리에 취하고, 포차의 따뜻한 온기에 마음이 녹아내린다...",
   ];
 
-  // 오토모드 (혼술 사색 모드) - 혼자서 술잔과 안주를 홀짝홀짝 먹는 감성 스케줄러
+  // 오토모드 (혼술 사색 모드) - 술을 마신 후 곧바로 안주를 먹고 여운에 잠기는 자동 코스
   React.useEffect(() => {
     if (!isAutoMode) {
       setAutoThought(null);
@@ -246,18 +264,21 @@ export const App: React.FC = () => {
       window.dispatchEvent(new CustomEvent('pocha_sit_nearest'));
     }
 
-    let cycleStep = 0;
-    // ★ 실제 포차 혼술의 여유로운 템포: 14초 간격의 5단계 순환 (술 한잔 음미 -> 깊은 사색 -> 안주 한점 -> 멍때리기 -> 감상)
-    // 술 한잔과 다음 술잔 사이에 1분 이상의 충분한 사색 여운을 두어 서두르지 않고 느긋하게 힐링
-    const interval = setInterval(() => {
+    const runAutoCourse = () => {
       const targetTableId = currentChairRef.current ? currentChairRef.current.tableId : 't1';
       const serving = tableServingsRef.current[targetTableId];
-      const hasDrink = (serving?.drinkCount ?? 8) > 0 && serving?.hasDrink !== false;
-      const hasFood = (serving?.foodCount ?? 8) > 0 && serving?.hasFood !== false;
 
-      // 술과 안주를 모두 다 비웠으면 사색 모드 자연 종료
+      const hasDrink = serving?.drinks
+        ? serving.drinks.some((d) => d.drinkCount > 0)
+        : ((serving?.drinkCount ?? 0) > 0 && serving?.hasDrink !== false);
+
+      const hasFood = serving?.foods
+        ? serving.foods.some((f) => f.foodCount > 0)
+        : ((serving?.foodCount ?? 0) > 0 && serving?.hasFood !== false);
+
+      // 1. 술과 안주가 테이블에 없거나 다 비웠을 때 -> 사색 모드 자연 종료
       if (!hasDrink && !hasFood) {
-        setAutoThought("🍶 술병과 접시를 깨끗하게 다 비웠습니다. [나가기]를 누르거나 새 메뉴를 주문해보세요.");
+        setAutoThought("🍶 술병과 접시를 깨끗하게 다 비웠습니다. [나가기]를 누르거나 [메뉴판]에서 새 메뉴를 주문해보세요.");
         setTimeout(() => {
           setAutoThought(null);
           setIsAutoMode(false);
@@ -265,97 +286,119 @@ export const App: React.FC = () => {
         return;
       }
 
-      const step = cycleStep % 5;
+      // 2. 술이 있는 경우: [1단계 술 따르기 -> 2단계 술 마시기 -> 3단계 "바로 안주 먹기" -> 4단계 여운 사색]
+      if (hasDrink) {
+        const isBev = serving?.drinkId?.startsWith('bev_') ?? false;
+        const isMak = serving?.drinkId === 'drink_makgeolli';
+        const maxCount = isBev ? 3 : 8;
+        const unit = isBev ? '모금' : (isMak ? '사발' : '잔');
 
-      if (step === 0) {
-        // 1. 혼자서 잔 채우고 홀짝 마시기 (음료/술병 기울여 따르기 -> 잔 들어 마시기)
-        if (hasDrink) {
-          const isBev = serving?.drinkId?.startsWith('bev_') ?? false;
-          const maxCount = isBev ? 3 : 8;
-          const unit = isBev ? '모금' : '잔';
-          soundManager.playPouringSound();
-          setMyAction('pouring');
-          setAutoThought(isBev ? "콸콸... 시원한 음료를 컵에 따른다." : "쪼르르... 조용히 잔에 술을 채운다.");
+        // [A. 술 따르기 (0초)]
+        soundManager.playPouringSound();
+        setMyAction('pouring');
+        setAutoThought(
+          isBev
+            ? "콸콸... 시원한 음료를 컵에 따른다."
+            : isMak
+            ? "쪼르르... 노란 양은 사발에 뽀얀 막걸리를 가득 채운다."
+            : "쪼르르... 조용히 잔에 술을 채운다."
+        );
 
-          setTimeout(() => {
-            soundManager.playCheersSound();
-            setMyAction('drinking');
-            const res = handleConsumeDrink();
-            const thoughtPool = isBev ? BEVERAGE_THOUGHTS : DRINK_THOUGHTS;
-            const thought = thoughtPool[Math.floor(Math.random() * thoughtPool.length)];
-            setAutoThought(`${thought} (${res.count}/${maxCount}${unit})`);
-
-            setTimeout(() => {
-              setMyAction(currentChairRef.current ? 'sitting' : 'idle');
-              setAutoThought(null);
-            }, 4500);
-          }, 2200);
-        } else {
-          // 술이 없으면 안주 먹기로 대체
-          soundManager.playEatSound();
-          setMyAction('eating');
-          const res = handleConsumeFood();
-          const thought = EAT_THOUGHTS[Math.floor(Math.random() * EAT_THOUGHTS.length)];
-          setAutoThought(`${thought} (${res.count}/8입)`);
-          setTimeout(() => {
-            setMyAction(currentChairRef.current ? 'sitting' : 'idle');
-            setAutoThought(null);
-          }, 5500);
-        }
-      } else if (step === 1) {
-        // 2. 술 한잔 후 빗소리와 함께 첫 번째 여운 사색
-        const randomThought =
-          CONTEMPLATION_THOUGHTS[Math.floor(Math.random() * CONTEMPLATION_THOUGHTS.length)];
-        setAutoThought(randomThought);
-        setTimeout(() => setAutoThought(null), 6000);
-      } else if (step === 2) {
-        // 3. 따뜻한 안주 냠냠 먹기 (Eating)
-        if (hasFood) {
-          soundManager.playEatSound();
-          setMyAction('eating');
-          const res = handleConsumeFood();
-          const thought = EAT_THOUGHTS[Math.floor(Math.random() * EAT_THOUGHTS.length)];
-          setAutoThought(`${thought} (${res.count}/8입)`);
-          setTimeout(() => {
-            setMyAction(currentChairRef.current ? 'sitting' : 'idle');
-            setAutoThought(null);
-          }, 5500);
-        } else {
-          // 안주가 없으면 술 마시기로 대체
+        // [B. 술 마시기 (1.8초 뒤)]
+        setTimeout(() => {
+          if (!isAutoModeRef.current) return;
           soundManager.playCheersSound();
           setMyAction('drinking');
-          const res = handleConsumeDrink();
-          const thought = DRINK_THOUGHTS[Math.floor(Math.random() * DRINK_THOUGHTS.length)];
-          setAutoThought(`${thought} (${res.count}/8잔)`);
+          const drinkRes = handleConsumeDrink();
+          const thoughtPool = isBev
+            ? BEVERAGE_THOUGHTS
+            : isMak
+            ? [
+                "사발째 꿀꺽꿀꺽... 캬~ 구수한 막걸리가 목을 타고 시원하게 넘어간다.",
+                "호로록... 빗소리에 막걸리 한 사발, 하루 피로가 싹 씻겨 내려가네.",
+                "캬아... 차가운 생막걸리가 가슴을 시원하게 적셔준다.",
+              ]
+            : DRINK_THOUGHTS;
+          const drinkThought = thoughtPool[Math.floor(Math.random() * thoughtPool.length)];
+          setAutoThought(`${drinkThought} (${drinkRes.count}/${maxCount}${unit})`);
+
+          // [C. ★ 술을 마신 후 곧바로 안주 먹기 실행 (1.5초 뒤, 누적 3.3초 시점)]
           setTimeout(() => {
-            setMyAction(currentChairRef.current ? 'sitting' : 'idle');
+            if (!isAutoModeRef.current) return;
+            const curServing = tableServingsRef.current[targetTableId];
+            const canEat = curServing?.foods
+              ? curServing.foods.some((f) => f.foodCount > 0)
+              : ((curServing?.foodCount ?? 0) > 0 && curServing?.hasFood !== false);
+
+            if (canEat) {
+              soundManager.playEatSound();
+              setMyAction('eating');
+              const foodRes = handleConsumeFood();
+              const foodThought = EAT_THOUGHTS[Math.floor(Math.random() * EAT_THOUGHTS.length)];
+              setAutoThought(`${foodThought} (${foodRes.count}/8입)`);
+
+              // [D. 안주 먹은 후 착석 안정 및 감성 사색 독백 (2.5초 뒤, 누적 5.8초 시점)]
+              setTimeout(() => {
+                if (!isAutoModeRef.current) return;
+                setMyAction(currentChairRef.current ? 'sitting' : 'idle');
+                const randomThought =
+                  CONTEMPLATION_THOUGHTS[Math.floor(Math.random() * CONTEMPLATION_THOUGHTS.length)];
+                setAutoThought(randomThought);
+
+                // [E. 독백 4초 후 정리]
+                setTimeout(() => {
+                  if (!isAutoModeRef.current) return;
+                  setAutoThought(null);
+                }, 4000);
+              }, 2500);
+            } else {
+              // 안주가 다 떨어진 경우 바로 사색 전환
+              setTimeout(() => {
+                if (!isAutoModeRef.current) return;
+                setMyAction(currentChairRef.current ? 'sitting' : 'idle');
+                const randomThought =
+                  CONTEMPLATION_THOUGHTS[Math.floor(Math.random() * CONTEMPLATION_THOUGHTS.length)];
+                setAutoThought(randomThought);
+                setTimeout(() => {
+                  if (!isAutoModeRef.current) return;
+                  setAutoThought(null);
+                }, 4000);
+              }, 1500);
+            }
+          }, 1500);
+        }, 1800);
+      } else if (hasFood) {
+        // 3. 술은 없고 안주만 남은 경우: 바로 안주 먹기 실행
+        soundManager.playEatSound();
+        setMyAction('eating');
+        const res = handleConsumeFood();
+        const thought = EAT_THOUGHTS[Math.floor(Math.random() * EAT_THOUGHTS.length)];
+        setAutoThought(`${thought} (${res.count}/8입)`);
+
+        setTimeout(() => {
+          if (!isAutoModeRef.current) return;
+          setMyAction(currentChairRef.current ? 'sitting' : 'idle');
+          const randomThought =
+            CONTEMPLATION_THOUGHTS[Math.floor(Math.random() * CONTEMPLATION_THOUGHTS.length)];
+          setAutoThought(randomThought);
+          setTimeout(() => {
+            if (!isAutoModeRef.current) return;
             setAutoThought(null);
-          }, 5500);
-        }
-      } else if (step === 3) {
-        // 4. 안주 먹은 후 밖의 골목과 비/눈을 조용히 바라보며 멍때리기
-        const thoughts = [
-          "세상이 아무리 바빠도, 여기선 시간이 멈춘 것만 같아.",
-          "따끈한 국물과 온기 덕분에 마음이 차분해진다...",
-          "조용한 혼술의 여운이 가슴 깊이 스며드네.",
-        ];
-        setAutoThought(thoughts[Math.floor(Math.random() * thoughts.length)]);
-        setTimeout(() => setAutoThought(null), 6000);
-      } else {
-        // 5. 다음 잔을 마시기 전 깊은 생각과 마음 비우기
-        const thoughts = [
-          "복잡한 생각은 잠시 비워두고 이 포근한 밤에 집중하자.",
-          "오늘 하루도 참 고생 많았다...",
-          "내일은 또 내일의 태양이 뜨겠지...",
-        ];
-        setAutoThought(thoughts[Math.floor(Math.random() * thoughts.length)]);
-        setTimeout(() => setAutoThought(null), 6000);
+          }, 4000);
+        }, 2500);
       }
+    };
 
-      cycleStep++;
-    }, 14000);
+    // 사색 모드 진입 시 1초 후 첫 코스 시작
+    const initialTimer = setTimeout(runAutoCourse, 1000);
 
-    return () => clearInterval(interval);
+    // 이후 14초 간격으로 [술 마시기 -> 바로 안주 먹기 -> 사색] 순환 반복
+    const interval = setInterval(runAutoCourse, 14000);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
   }, [isAutoMode]);
 
   // 사장님 메뉴 주문 & 서빙 요청 핸들러 (복수 선택 주문 지원)
@@ -589,6 +632,8 @@ export const App: React.FC = () => {
     setIsAutoMode(false);
     setMyAction('walking');
     setCurrentChair(null);
+    // 주인장 배웅 인사 이벤트 발송
+    window.dispatchEvent(new CustomEvent('pocha_customer_exit'));
     setServingToast("👵 사장님: '손님, 오늘 하루도 참 고생 많으셨어요! 조심히 들어가시고 또 들러주세요~'");
     setTimeout(() => {
       setServingToast(null);
@@ -674,7 +719,7 @@ export const App: React.FC = () => {
       <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
         <Canvas
           shadows={!isMobile}
-          camera={{ position: [0, 2.8, 6.6], fov: 45 }}
+          camera={{ position: [0, 3.8, 8.0], fov: 45 }}
           dpr={isMobile ? [1, 1.5] : [1, 2]}
           gl={{
             antialias: true,
@@ -778,10 +823,6 @@ export const App: React.FC = () => {
           isWaiting={isWaiting}
           waitingNumber={waitingNumber}
           onCancelWaiting={handleCancelWaiting}
-          onRequestWaiting={() => {
-            setWaitingMode('register');
-            setIsWaitingModalOpen(true);
-          }}
         />
       )}
 
@@ -805,6 +846,8 @@ export const App: React.FC = () => {
             }));
             sendUpdate(myRealtimePos.current, myRealtimeRot.current, 'idle', null, finalNickname);
             setHasEntered(true);
+            // 사장님 손님 환영 인사 이벤트 발송
+            window.dispatchEvent(new CustomEvent('pocha_customer_enter', { detail: { nickname: finalNickname } }));
           }}
         />
       )}

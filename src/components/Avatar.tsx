@@ -35,6 +35,7 @@ export const Avatar: React.FC<AvatarProps> = ({
 }) => {
   const isBeverage = drinkId ? (drinkId.startsWith('bev_') || drinkId === 'bev_cola' || drinkId === 'bev_cider') : false;
   const isCola = drinkId === 'bev_cola';
+  const isMakgeolli = drinkId === 'drink_makgeolli';
   const groupRef = useRef<THREE.Group>(null);
   const portalRef = useRef<HTMLElement>(typeof document !== 'undefined' ? document.body : (null as any));
 
@@ -452,33 +453,44 @@ export const Avatar: React.FC<AvatarProps> = ({
                   </mesh>
                 </group>
               ) : (
-                /* 초록 소주병 본체 */
+                /* 주류 병 (막걸리일 때는 아이보리 생막걸리병, 그 외에는 초록 소주병) */
                 <group>
                   <mesh position={[0, 0, 0]}>
-                    <cylinderGeometry args={[0.03, 0.034, 0.15, 16]} />
-                    <meshStandardMaterial color="#00a86b" roughness={0.15} metalness={0.1} transparent opacity={0.92} />
+                    <cylinderGeometry args={[isMakgeolli ? 0.034 : 0.03, isMakgeolli ? 0.036 : 0.034, isMakgeolli ? 0.16 : 0.15, 16]} />
+                    <meshStandardMaterial
+                      color={isMakgeolli ? '#f8f9fa' : '#00a86b'}
+                      roughness={isMakgeolli ? 0.4 : 0.15}
+                      metalness={isMakgeolli ? 0.05 : 0.1}
+                      transparent={!isMakgeolli}
+                      opacity={isMakgeolli ? 1.0 : 0.92}
+                    />
                   </mesh>
                   {/* 병목 */}
                   <mesh position={[0, 0.1, 0]}>
-                    <cylinderGeometry args={[0.012, 0.026, 0.055, 16]} />
-                    <meshStandardMaterial color="#00a86b" roughness={0.15} transparent opacity={0.92} />
+                    <cylinderGeometry args={[isMakgeolli ? 0.015 : 0.012, 0.026, 0.055, 16]} />
+                    <meshStandardMaterial
+                      color={isMakgeolli ? '#f8f9fa' : '#00a86b'}
+                      roughness={isMakgeolli ? 0.4 : 0.15}
+                      transparent={!isMakgeolli}
+                      opacity={isMakgeolli ? 1.0 : 0.92}
+                    />
                   </mesh>
                   {/* 병 주둥이 & 뚜껑 */}
                   <mesh position={[0, 0.132, 0]}>
-                    <cylinderGeometry args={[0.013, 0.013, 0.01, 12]} />
+                    <cylinderGeometry args={[0.014, 0.014, 0.01, 12]} />
                     <meshStandardMaterial color="#27ae60" metalness={0.7} />
                   </mesh>
-                  {/* 하얀 사각 소주 라벨 */}
+                  {/* 사각 라벨 */}
                   <mesh position={[0, 0, 0]}>
-                    <cylinderGeometry args={[0.033, 0.033, 0.06, 16]} />
-                    <meshStandardMaterial color="#ffffff" roughness={0.4} />
+                    <cylinderGeometry args={[0.035, 0.035, 0.06, 16]} />
+                    <meshStandardMaterial color={isMakgeolli ? '#f1c40f' : '#ffffff'} roughness={0.4} />
                   </mesh>
                 </group>
               )}
             </group>
           )}
 
-          {/* B. 마시기 & 착석 (drinking, cheers, 평상시): 음료일 때는 얼음 빨대 컵, 주류일 때는 소주잔 */}
+          {/* B. 마시기 & 착석 (drinking, cheers, 평상시): 음료일 때는 얼음 빨대 컵, 주류일 때는 소주잔 / 막걸리 사발 */}
           {(action === 'cheers' || action === 'drinking' || (isSitting && action !== 'eating' && action !== 'pouring')) && (
             <group position={[0, 0.04, 0.05]}>
               {isBeverage ? (
@@ -518,6 +530,23 @@ export const Avatar: React.FC<AvatarProps> = ({
                   <mesh position={[0.01, 0.028, 0.004]} rotation={[0.15, 0, -0.25]}>
                     <cylinderGeometry args={[0.0028, 0.0028, 0.10, 8]} />
                     <meshStandardMaterial color="#ff7675" roughness={0.3} />
+                  </mesh>
+                </group>
+              ) : isMakgeolli ? (
+                /* 황금 양은 막걸리 사발 */
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.032, 0.018, 0.038, 16]} />
+                    <meshStandardMaterial
+                      color="#e5a93b"
+                      metalness={0.65}
+                      roughness={0.3}
+                    />
+                  </mesh>
+                  {/* 뽀얀 쌀 막걸리 액체 */}
+                  <mesh position={[0, 0.01, 0]}>
+                    <cylinderGeometry args={[0.029, 0.017, 0.016, 14]} />
+                    <meshStandardMaterial color="#fcfcfc" roughness={0.6} />
                   </mesh>
                 </group>
               ) : (
