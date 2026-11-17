@@ -15,6 +15,7 @@ import { ChairSlot, PlayerAction, WeatherMood, PochaMenuItem } from './types';
 import { TableServing } from './components/PochaTable';
 import { soundManager } from './components/AudioController';
 import { POCHA_MENUS } from './data/menuData';
+import { initGA, trackEvent, trackPageView } from './utils/analytics';
 
 export const App: React.FC = () => {
   const isMobile = useIsMobile();
@@ -44,6 +45,12 @@ export const App: React.FC = () => {
 
   const currentChairRef = React.useRef(currentChair);
   currentChairRef.current = currentChair;
+
+  // Google Analytics 초기화 및 첫 페이지뷰 기록
+  React.useEffect(() => {
+    initGA();
+    trackPageView();
+  }, []);
 
   // 사장님이 손님 테이블에 도착하여 배달 완료 시 해당 테이블에 메뉴 세팅
   React.useEffect(() => {
@@ -417,6 +424,14 @@ export const App: React.FC = () => {
     // 메뉴판에서 주문 완료 시 즉시 [한잔] 및 [먹기] 버튼 활성화
     setHasOrderedAfterMenu(true);
 
+    // Google Analytics 주문 이벤트 추적
+    trackEvent('order_menu', {
+      table_id: currentChair.tableId,
+      items: items.map((it) => it.name).join(', '),
+      item_count: items.length,
+      total_price: items.reduce((sum, it) => sum + (Number(it.price) || 0), 0),
+    });
+
     let targetPos: [number, number, number] = [0, 0, 0];
     let tableName = '테이블';
     const targetTableId = currentChair.tableId;
@@ -554,6 +569,12 @@ export const App: React.FC = () => {
       setIsAutoMode(false);
     }
 
+    trackEvent('drink', {
+      drink_id: currentDrinkId,
+      remaining_count: resultCount,
+      is_done: resultDone,
+    });
+
     return { count: resultCount, isDone: resultDone, drinkId: currentDrinkId };
   };
 
@@ -607,6 +628,12 @@ export const App: React.FC = () => {
       setIsAutoMode(false);
     }
 
+    trackEvent('eat_food', {
+      food_id: currentFoodId,
+      remaining_count: resultCount,
+      is_done: resultDone,
+    });
+
     return { count: resultCount, isDone: resultDone, foodId: currentFoodId };
   };
 
@@ -632,6 +659,8 @@ export const App: React.FC = () => {
     setIsAutoMode(false);
     setMyAction('walking');
     setCurrentChair(null);
+    // Google Analytics 퇴장 이벤트 추적
+    trackEvent('exit_pocha');
     // 주인장 배웅 인사 이벤트 발송
     window.dispatchEvent(new CustomEvent('pocha_customer_exit'));
     setServingToast("👵 사장님: '손님, 오늘 하루도 참 고생 많으셨어요! 조심히 들어가시고 또 들러주세요~'");
@@ -846,6 +875,8 @@ export const App: React.FC = () => {
             }));
             sendUpdate(myRealtimePos.current, myRealtimeRot.current, 'idle', null, finalNickname);
             setHasEntered(true);
+            // Google Analytics 입장 이벤트 추적
+            trackEvent('enter_pocha', { nickname: finalNickname });
             // 사장님 손님 환영 인사 이벤트 발송
             window.dispatchEvent(new CustomEvent('pocha_customer_enter', { detail: { nickname: finalNickname } }));
           }}
