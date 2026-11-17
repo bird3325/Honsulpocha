@@ -18,6 +18,8 @@ interface AvatarProps {
   isMe?: boolean;
   autoThought?: string | null; // 오토모드 사색 독백 말풍선
   drinkId?: string; // 주문/서빙된 음료/주류 ID (예: 'bev_cola', 'bev_cider', 'soju_chamisul')
+  drinkCount?: number; // 남은 술 잔 수 (8 -> 0)
+  drunkLevel?: number; // 직접 지정 가능한 취기 레벨 (0.0 맨정신 ~ 1.0 완취)
 }
 
 export const Avatar: React.FC<AvatarProps> = ({
@@ -32,10 +34,49 @@ export const Avatar: React.FC<AvatarProps> = ({
   isMe = false,
   autoThought = null,
   drinkId,
+  drinkCount,
+  drunkLevel,
 }) => {
   const isBeverage = drinkId ? (drinkId.startsWith('bev_') || drinkId === 'bev_cola' || drinkId === 'bev_cider') : false;
   const isCola = drinkId === 'bev_cola';
   const isMakgeolli = drinkId === 'drink_makgeolli';
+  const isAlcohol = drinkId ? !isBeverage : false;
+
+  // 술 양에 따른 취기 진행도 (0.0: 맨정신 ~ 1.0: 완벽한 취기)
+  const currentDrunkLevel = React.useMemo(() => {
+    if (drunkLevel !== undefined) {
+      return Math.min(1, Math.max(0, drunkLevel));
+    }
+    // 음료수는 취기가 오르지 않음
+    if (!isAlcohol) return 0;
+    if (drinkCount === undefined) return 0;
+    // 8잔 기준: 남은 술의 양이 적을수록(비워갈수록) 얼굴이 붉어짐
+    const consumed = Math.max(0, 8 - drinkCount);
+    return Math.min(1, consumed / 8);
+  }, [drunkLevel, isAlcohol, drinkCount]);
+
+  // 술 양에 따른 얼굴 및 피부톤 색상 보간
+  const { skinColor, blushColor, blushOpacity, blushScale, noseFlushOpacity } = React.useMemo(() => {
+    const level = currentDrunkLevel;
+    // 1. 기본 뽀얀 살구빛 피부톤 (#ffeaa7) -> 기분 좋게 상기된 포차 홍조 톤 (#ff9e90)
+    const baseColor = new THREE.Color('#ffeaa7');
+    const flushedColor = new THREE.Color('#ff9e90');
+    const skin = baseColor.clone().lerp(flushedColor, level);
+
+    // 2. 양 볼 볼터치: 연한 살구 핑크 (#ffb8b8) -> 진한 홍조 핑크 (#ff4757)
+    const baseBlush = new THREE.Color('#ffb8b8');
+    const fullBlush = new THREE.Color('#ff4757');
+    const blush = baseBlush.clone().lerp(fullBlush, level);
+
+    return {
+      skinColor: '#' + skin.getHexString(),
+      blushColor: '#' + blush.getHexString(),
+      blushOpacity: 0.2 + level * 0.7, // 0.2 -> 0.9로 점점 짙어짐
+      blushScale: 1.0 + level * 0.45, // 1.0 -> 1.45배로 넓게 번짐
+      noseFlushOpacity: level > 0.15 ? (level - 0.15) * 0.85 : 0, // 콧등 발그레함
+    };
+  }, [currentDrunkLevel]);
+
   const groupRef = useRef<THREE.Group>(null);
   const portalRef = useRef<HTMLElement>(typeof document !== 'undefined' ? document.body : (null as any));
 
@@ -355,10 +396,10 @@ export const Avatar: React.FC<AvatarProps> = ({
 
         {/* 4. 직장인 얼굴 & 단정한 헤어 */}
         <group ref={headRef} position={[0, isSitting ? 1.04 : 0.9, 0]}>
-          {/* 얼굴 */}
+          {/* 얼굴 (술 양에 따라 맨정신 뽀얀 톤 -> 취기 오른 붉은 홍조 톤으로 자연스럽게 변화) */}
           <mesh castShadow>
             <sphereGeometry args={[0.22, 20, 20]} />
-            <meshStandardMaterial color="#ffeaa7" roughness={0.4} />
+            <meshStandardMaterial color={skinColor} roughness={0.4} />
           </mesh>
 
           {/* 단정한 가르마 헤어스타일 (차콜 블랙) */}
@@ -401,15 +442,23 @@ export const Avatar: React.FC<AvatarProps> = ({
             <meshBasicMaterial color="#2d3436" />
           </mesh>
 
-          {/* 소주 한잔에 은은해진 핑크빛 볼터치 */}
-          <mesh position={[-0.12, -0.06, 0.18]} rotation={[0, -0.2, 0]}>
+          {/* 술 양에 따라 발그레하게 번지는 양 볼 볼터치 (연분홍 -> 진한 포차 홍조) */}
+          <mesh position={[-0.12, -0.06, 0.18]} rotation={[0, -0.2, 0]} scale={[blushScale, blushScale, 1]}>
             <circleGeometry args={[0.035, 12]} />
-            <meshBasicMaterial color="#ff7675" transparent opacity={0.65} />
+            <meshBasicMaterial color={blushColor} transparent opacity={blushOpacity} />
           </mesh>
-          <mesh position={[0.12, -0.06, 0.18]} rotation={[0, 0.2, 0]}>
+          <mesh position={[0.12, -0.06, 0.18]} rotation={[0, 0.2, 0]} scale={[blushScale, blushScale, 1]}>
             <circleGeometry args={[0.035, 12]} />
-            <meshBasicMaterial color="#ff7675" transparent opacity={0.65} />
+            <meshBasicMaterial color={blushColor} transparent opacity={blushOpacity} />
           </mesh>
+
+          {/* 취기가 오를 때 코끝도 살짝 발그레해지는 디테일 */}
+          {noseFlushOpacity > 0 && (
+            <mesh position={[0, -0.02, 0.218]}>
+              <circleGeometry args={[0.016, 12]} />
+              <meshBasicMaterial color={blushColor} transparent opacity={noseFlushOpacity} />
+            </mesh>
+          )}
         </group>
 
         {/* 5. 오른손 & 단 하나의 소주잔 (손 위에 컵처럼 서 있던 착시 소매를 어깨-팔 연결 구조로 완벽 교정) */}
@@ -417,7 +466,7 @@ export const Avatar: React.FC<AvatarProps> = ({
           {/* 손바닥/주먹 */}
           <mesh>
             <sphereGeometry args={[0.045, 16, 16]} />
-            <meshStandardMaterial color="#ffeaa7" roughness={0.4} />
+            <meshStandardMaterial color={skinColor} roughness={0.4} />
           </mesh>
 
           {/* 셔츠 팔/소매 (손 위가 아니라 어깨 쪽에서 손목으로 자연스럽게 내려오는 팔) */}
@@ -590,7 +639,7 @@ export const Avatar: React.FC<AvatarProps> = ({
           {/* 손바닥/주먹 */}
           <mesh>
             <sphereGeometry args={[0.045, 16, 16]} />
-            <meshStandardMaterial color="#ffeaa7" roughness={0.4} />
+            <meshStandardMaterial color={skinColor} roughness={0.4} />
           </mesh>
 
           {/* 셔츠 팔/소매 (손 위가 아니라 어깨 쪽에서 손목으로 자연스럽게 내려오는 팔) */}

@@ -42,6 +42,7 @@ interface PochaSceneProps {
   autoThought?: string | null;
   isExiting?: boolean;
   onExitComplete?: () => void;
+  alcoholCups?: number;
 }
 
 export const PochaScene: React.FC<PochaSceneProps> = ({
@@ -61,6 +62,7 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
   autoThought = null,
   isExiting = false,
   onExitComplete,
+  alcoholCups = 0,
 }) => {
   const keys = useKeyboard();
   const playerPos = useRef<[number, number, number]>([0, 0, 4.6]); // 처음 시작 시 포장마차 입구 중앙에 배치
@@ -738,7 +740,21 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
         isSeated={!!currentChair}
         isMe={true}
         autoThought={autoThought}
-        drinkId={tableServings ? (currentChair ? tableServings[currentChair.tableId]?.drinkId : undefined) : undefined}
+        drinkId={tableServings && currentChair ? tableServings[currentChair.tableId]?.drinkId : undefined}
+        drinkCount={tableServings && currentChair ? tableServings[currentChair.tableId]?.drinkCount : undefined}
+        drunkLevel={
+          Math.min(
+            1,
+            Math.max(
+              alcoholCups / 8,
+              tableServings && currentChair && tableServings[currentChair.tableId]?.drinkCount !== undefined &&
+                tableServings[currentChair.tableId]?.drinkId &&
+                !tableServings[currentChair.tableId].drinkId?.startsWith('bev_')
+                ? (8 - (tableServings[currentChair.tableId].drinkCount ?? 8)) / 8
+                : 0
+            )
+          )
+        }
       />
 
       {/* 다른 접속자 캐릭터들 (내 캐릭터 및 내 닉네임 중복 렌더링 원천 방지) */}

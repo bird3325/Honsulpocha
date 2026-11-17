@@ -25,6 +25,8 @@ export const App: React.FC = () => {
   const [currentChair, setCurrentChair] = useState<ChairSlot | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [servingToast, setServingToast] = useState<string | null>(null);
+  // 마신 술의 양(잔 수)에 따른 취기 및 얼굴톤 변화 상태
+  const [alcoholCups, setAlcoholCups] = useState<number>(0);
   const myRealtimePos = React.useRef<[number, number, number]>([0, 0, 4.6]);
   const myRealtimeRot = React.useRef<number>(Math.PI);
   const joystickVector = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -569,6 +571,11 @@ export const App: React.FC = () => {
       setIsAutoMode(false);
     }
 
+    // 알코올 주류인 경우 술의 양(잔 수) 누적 -> 캐릭터 얼굴톤이 점점 발그레해짐!
+    if (currentDrinkId && !currentDrinkId.startsWith('bev_')) {
+      setAlcoholCups((prev) => prev + 1);
+    }
+
     trackEvent('drink', {
       drink_id: currentDrinkId,
       remaining_count: resultCount,
@@ -678,6 +685,7 @@ export const App: React.FC = () => {
     setHasOrderedAfterMenu(false);
     setIsAutoMode(false);
     setTableServings({});
+    setAlcoholCups(0); // 포차 퇴장 시 취기 리셋
     setIsWaiting(false);
     setIsWaitingModalOpen(false);
     if (waitingTimerRef.current) clearTimeout(waitingTimerRef.current);
@@ -782,6 +790,7 @@ export const App: React.FC = () => {
             autoThought={autoThought}
             isExiting={isExiting}
             onExitComplete={handleExitComplete}
+            alcoholCups={alcoholCups}
           />
         </Canvas>
       </div>
