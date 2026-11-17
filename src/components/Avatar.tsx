@@ -90,6 +90,8 @@ export const Avatar: React.FC<AvatarProps> = ({
   const headRef = useRef<THREE.Group>(null);
   const bodyRef = useRef<THREE.Group>(null);
   const tieRef = useRef<THREE.Group>(null);
+  const leftEyeRef = useRef<THREE.Group>(null);
+  const rightEyeRef = useRef<THREE.Group>(null);
   const lastStepTimeRef = useRef<number>(0);
 
   // 착석 여부 결정 (명시적인 isSeated가 있으면 우선, 없을 시 액션이 sitting일 때만 true)
@@ -265,6 +267,22 @@ export const Avatar: React.FC<AvatarProps> = ({
         headRef.current.rotation.x = Math.sin(time * 1.5) * 0.02;
       }
     }
+
+    // 6. 술 양(취기)에 따른 눈알 골뱅이 회전 애니메이션
+    if (currentDrunkLevel >= 0.25) {
+      // 술을 많이 마실수록 회전 속도가 점점 빨라짐 (초당 2.0 ~ 7.5 rad)
+      const spinSpeed = 2.0 + currentDrunkLevel * 5.5;
+      if (leftEyeRef.current) {
+        leftEyeRef.current.rotation.z -= delta * spinSpeed;
+      }
+      if (rightEyeRef.current) {
+        // 우측 눈은 반대 방향으로 회전하여 대칭적 소용돌이 연출
+        rightEyeRef.current.rotation.z += delta * spinSpeed;
+      }
+    } else {
+      if (leftEyeRef.current) leftEyeRef.current.rotation.z = -0.1;
+      if (rightEyeRef.current) rightEyeRef.current.rotation.z = -0.1;
+    }
   });
 
   return (
@@ -432,15 +450,76 @@ export const Avatar: React.FC<AvatarProps> = ({
             </mesh>
           </group>
 
-          {/* 피로를 잊고 편안해진 눈 (차분한 미소 눈) */}
-          <mesh position={[-0.07, 0.01, 0.21]} rotation={[0, 0, -0.1]}>
-            <torusGeometry args={[0.016, 0.004, 8, 12, Math.PI]} />
-            <meshBasicMaterial color="#2d3436" />
-          </mesh>
-          <mesh position={[0.07, 0.01, 0.21]} rotation={[0, 0, -0.1]}>
-            <torusGeometry args={[0.016, 0.004, 8, 12, Math.PI]} />
-            <meshBasicMaterial color="#2d3436" />
-          </mesh>
+          {/* 술 양에 따른 눈알 표현: 맨정신일 땐 차분한 미소 눈, 술 마실수록 골뱅이 눈으로 뱅글뱅글 회전 */}
+          {/* 좌측 눈 */}
+          <group ref={leftEyeRef} position={[-0.07, 0.01, 0.21]}>
+            {currentDrunkLevel < 0.25 ? (
+              /* 맨정신 (0~2잔): 차분하고 편안한 미소 눈 */
+              <mesh rotation={[0, 0, 0]}>
+                <torusGeometry args={[0.016, 0.004, 8, 12, Math.PI]} />
+                <meshBasicMaterial color="#2d3436" />
+              </mesh>
+            ) : (
+              /* 취기 상태 (3잔 이상): 만화 속 골뱅이 눈 (@_@) */
+              <group scale={[0.9 + currentDrunkLevel * 0.35, 0.9 + currentDrunkLevel * 0.35, 1]}>
+                {/* 1단 내부 소용돌이 */}
+                <mesh position={[0, 0, 0]}>
+                  <torusGeometry args={[0.0055, 0.0022, 8, 16, Math.PI]} />
+                  <meshBasicMaterial color="#2d3436" />
+                </mesh>
+                {/* 2단 중간 소용돌이 */}
+                <mesh position={[0.0028, 0, 0]} rotation={[0, 0, Math.PI]}>
+                  <torusGeometry args={[0.01, 0.0022, 8, 16, Math.PI]} />
+                  <meshBasicMaterial color="#2d3436" />
+                </mesh>
+                {/* 3단 외부 소용돌이 */}
+                <mesh position={[0, 0, 0]}>
+                  <torusGeometry args={[0.015, 0.0022, 8, 16, Math.PI * 1.3]} />
+                  <meshBasicMaterial color="#2d3436" />
+                </mesh>
+                {/* 중심 핵심 점 */}
+                <mesh position={[0, 0, 0]}>
+                  <sphereGeometry args={[0.003, 8, 8]} />
+                  <meshBasicMaterial color="#2d3436" />
+                </mesh>
+              </group>
+            )}
+          </group>
+
+          {/* 우측 눈 */}
+          <group ref={rightEyeRef} position={[0.07, 0.01, 0.21]}>
+            {currentDrunkLevel < 0.25 ? (
+              /* 맨정신 (0~2잔): 차분하고 편안한 미소 눈 */
+              <mesh rotation={[0, 0, 0]}>
+                <torusGeometry args={[0.016, 0.004, 8, 12, Math.PI]} />
+                <meshBasicMaterial color="#2d3436" />
+              </mesh>
+            ) : (
+              /* 취기 상태 (3잔 이상): 만화 속 골뱅이 눈 (@_@) */
+              <group scale={[0.9 + currentDrunkLevel * 0.35, 0.9 + currentDrunkLevel * 0.35, 1]}>
+                {/* 1단 내부 소용돌이 */}
+                <mesh position={[0, 0, 0]}>
+                  <torusGeometry args={[0.0055, 0.0022, 8, 16, Math.PI]} />
+                  <meshBasicMaterial color="#2d3436" />
+                </mesh>
+                {/* 2단 중간 소용돌이 */}
+                <mesh position={[0.0028, 0, 0]} rotation={[0, 0, Math.PI]}>
+                  <torusGeometry args={[0.01, 0.0022, 8, 16, Math.PI]} />
+                  <meshBasicMaterial color="#2d3436" />
+                </mesh>
+                {/* 3단 외부 소용돌이 */}
+                <mesh position={[0, 0, 0]}>
+                  <torusGeometry args={[0.015, 0.0022, 8, 16, Math.PI * 1.3]} />
+                  <meshBasicMaterial color="#2d3436" />
+                </mesh>
+                {/* 중심 핵심 점 */}
+                <mesh position={[0, 0, 0]}>
+                  <sphereGeometry args={[0.003, 8, 8]} />
+                  <meshBasicMaterial color="#2d3436" />
+                </mesh>
+              </group>
+            )}
+          </group>
 
           {/* 술 양에 따라 발그레하게 번지는 양 볼 볼터치 (연분홍 -> 진한 포차 홍조) */}
           <mesh position={[-0.12, -0.06, 0.18]} rotation={[0, -0.2, 0]} scale={[blushScale, blushScale, 1]}>
