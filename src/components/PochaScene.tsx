@@ -9,6 +9,7 @@ import { NightCityBuildings } from './NightCityBuildings';
 import { ParkEnvironment } from './ParkEnvironment';
 import { RoadTraffic } from './RoadTraffic';
 import { RainEffect } from './RainEffect';
+import { StarrySkyWithMeteors } from './StarrySkyWithMeteors';
 import { Avatar } from './Avatar';
 import { OtherAvatars } from './OtherAvatars';
 import { GrandmaBoss } from './GrandmaBoss';
@@ -130,43 +131,46 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
           pochaLightIntensity: 1.8,
         };
       case 'autumn':
+        // 낙엽지는 밤: 색상은 그냥 아늑한 기본 밤으로 유지하고 단풍 낙엽만 흩날림
         return {
-          fogColor: '#0e0907',
-          fogNear: 22,
+          fogColor: '#080a0e',
+          fogNear: 24,
           fogFar: 90,
-          ambientColor: '#d35400',
+          ambientColor: '#e67e22',
           ambientIntensity: 0.65,
-          dirLightColor: '#e67e22',
+          dirLightColor: '#ffeaa7',
           dirLightIntensity: 0.85,
-          dirLightPos: [9, 13, 8] as [number, number, number],
-          pochaLightColor: '#e67e22',
+          dirLightPos: [8, 14, 10] as [number, number, number],
+          pochaLightColor: '#f39c12',
           pochaLightIntensity: 1.9,
         };
       case 'sunset':
+        // 노을빛 저녁: 지나친 원색 빨강을 빼고 은은하고 차분한 소프트 살구빛 골든아워 톤
         return {
-          fogColor: '#170b17',
+          fogColor: '#100b12',
           fogNear: 25,
           fogFar: 95,
-          ambientColor: '#8e44ad',
+          ambientColor: '#d6a2e8',
           ambientIntensity: 0.6,
-          dirLightColor: '#d63031',
-          dirLightIntensity: 0.85,
+          dirLightColor: '#f39c12', // 쨍한 빨강(#d63031) 대신 부드러운 살구빛 웜톤
+          dirLightIntensity: 0.72,
           dirLightPos: [12, 7, 10] as [number, number, number],
-          pochaLightColor: '#e17055',
-          pochaLightIntensity: 1.7,
+          pochaLightColor: '#f39c12',
+          pochaLightIntensity: 1.8,
         };
       case 'starry':
+        // 별헤는 밤: 과도한 네온 파랑을 빼고 깊고 차분한 기본 밤하늘 유지 (별과 유성우가 돋보이도록)
         return {
-          fogColor: '#030509',
-          fogNear: 28,
-          fogFar: 110,
-          ambientColor: '#3742fa',
-          ambientIntensity: 0.55,
-          dirLightColor: '#70a1ff',
+          fogColor: '#05070a',
+          fogNear: 26,
+          fogFar: 100,
+          ambientColor: '#c8d6e5',
+          ambientIntensity: 0.58,
+          dirLightColor: '#f5f6fa',
           dirLightIntensity: 0.75,
           dirLightPos: [8, 14, 10] as [number, number, number],
-          pochaLightColor: '#f9ca24',
-          pochaLightIntensity: 1.7,
+          pochaLightColor: '#f39c12',
+          pochaLightIntensity: 1.9,
         };
       case 'rainy':
       default:
@@ -705,6 +709,8 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
       <ParkEnvironment weatherMood={weatherMood} />
       <RoadTraffic />
       <RainEffect weatherMood={weatherMood} />
+      {/* 별헤는 밤: 맑고 깊은 밤하늘의 2,800개 별과 쏟아지는 유성우(별똥별) */}
+      {weatherMood === 'starry' && <StarrySkyWithMeteors />}
 
       {/* 포장마차 텐트 & 주방 */}
       <PochaTent weatherMood={weatherMood} />

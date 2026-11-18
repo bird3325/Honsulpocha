@@ -453,8 +453,8 @@ export const WeatherEffect: React.FC<WeatherEffectProps> = ({ weatherMood = 'rai
 
   return (
     <group>
-      {/* 빗방울 / 눈송이 메인 낙하 파티클 */}
-      <points ref={pointsRef}>
+      {/* 빗방울 / 눈송이 / 단풍잎 메인 낙하 파티클 (별헤는 밤일 때는 맑은 밤하늘 별과 유성우에 집중) */}
+      <points ref={pointsRef} visible={weatherMood !== 'starry'}>
         <bufferGeometry>
           <bufferAttribute
             attach="attributes-position"
