@@ -10,6 +10,7 @@ import { ParkEnvironment } from './ParkEnvironment';
 import { RoadTraffic } from './RoadTraffic';
 import { RainEffect } from './RainEffect';
 import { StarrySkyWithMeteors } from './StarrySkyWithMeteors';
+import { DistantSunsetGlow } from './DistantSunsetGlow';
 import { Avatar } from './Avatar';
 import { OtherAvatars } from './OtherAvatars';
 import { GrandmaBoss } from './GrandmaBoss';
@@ -131,32 +132,32 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
           pochaLightIntensity: 1.8,
         };
       case 'autumn':
-        // 낙엽지는 밤: 색상은 그냥 아늑한 기본 밤으로 유지하고 단풍 낙엽만 흩날림
+        // 낙엽지는 밤: 색상은 별헤는 밤처럼 맑고 깊은 일반 밤으로 완벽히 유지하고 단풍 낙엽만 흩날림
         return {
-          fogColor: '#080a0e',
-          fogNear: 24,
-          fogFar: 90,
-          ambientColor: '#e67e22',
-          ambientIntensity: 0.65,
-          dirLightColor: '#ffeaa7',
-          dirLightIntensity: 0.85,
+          fogColor: '#05070a',
+          fogNear: 26,
+          fogFar: 100,
+          ambientColor: '#c8d6e5',
+          ambientIntensity: 0.58,
+          dirLightColor: '#f5f6fa',
+          dirLightIntensity: 0.75,
           dirLightPos: [8, 14, 10] as [number, number, number],
           pochaLightColor: '#f39c12',
           pochaLightIntensity: 1.9,
         };
       case 'sunset':
-        // 노을빛 저녁: 지나친 원색 빨강을 빼고 은은하고 차분한 소프트 살구빛 골든아워 톤
+        // 노을빛 저녁: 색상은 별헤는 밤처럼 일반 밤으로 유지하고, 낮은 사선 직사광으로 그림자가 길고 깊게 들어옴
         return {
-          fogColor: '#100b12',
-          fogNear: 25,
-          fogFar: 95,
-          ambientColor: '#d6a2e8',
-          ambientIntensity: 0.6,
-          dirLightColor: '#f39c12', // 쨍한 빨강(#d63031) 대신 부드러운 살구빛 웜톤
-          dirLightIntensity: 0.72,
-          dirLightPos: [12, 7, 10] as [number, number, number],
+          fogColor: '#05070a',
+          fogNear: 26,
+          fogFar: 100,
+          ambientColor: '#c8d6e5',
+          ambientIntensity: 0.38, // 환경광을 낮추어 그림자 명암 대비를 짙고 깊게 강조
+          dirLightColor: '#f5f6fa',
+          dirLightIntensity: 1.25, // 직사광을 뚜렷하게 하여 그림자가 짙고 선명하게 맺힘
+          dirLightPos: [15, 5.2, 8.5] as [number, number, number], // 낮은 각도의 직사광으로 그림자가 길고 깊숙하게 드리워짐
           pochaLightColor: '#f39c12',
-          pochaLightIntensity: 1.8,
+          pochaLightIntensity: 1.9,
         };
       case 'starry':
         // 별헤는 밤: 과도한 네온 파랑을 빼고 깊고 차분한 기본 밤하늘 유지 (별과 유성우가 돋보이도록)
@@ -670,23 +671,29 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
       )}
 
       {/* 1. 환경광 (Ambient Light): 어둑어둑하고 아늑한 심야 포차 감성 연출 */}
-      <ambientLight intensity={isMobile ? 0.95 : Math.max(0.65, moodConfig.ambientIntensity)} color={moodConfig.ambientColor} />
+      <ambientLight intensity={isMobile ? 0.95 : moodConfig.ambientIntensity} color={moodConfig.ambientColor} />
 
       {/* 2. 반구 조명 (Hemisphere Light): 하늘빛과 지면 반사광을 차분하게 연출 */}
       <hemisphereLight
-        args={[moodConfig.dirLightColor, '#271b12', isMobile ? 0.65 : 0.4]}
+        args={[moodConfig.dirLightColor, '#1b1612', isMobile ? 0.65 : 0.35]}
       />
 
-      {/* 3. 직사광 (Directional Light): 모바일에서는 shadow 비활성화로 GPU 과부하 및 블랙아웃 방지 */}
+      {/* 3. 직사광 (Directional Light): 그림자가 깊고 선명하게 드리워지는 고품질 섀도우맵 */}
       <directionalLight
         position={moodConfig.dirLightPos}
         intensity={moodConfig.dirLightIntensity}
         color={moodConfig.dirLightColor}
         castShadow={!isMobile}
-        shadow-bias={0.0001}
+        shadow-bias={-0.00015}
         shadow-normalBias={0.02}
-        shadow-mapSize-width={isMobile ? 512 : 1024}
-        shadow-mapSize-height={isMobile ? 512 : 1024}
+        shadow-mapSize-width={isMobile ? 512 : 2048}
+        shadow-mapSize-height={isMobile ? 512 : 2048}
+        shadow-camera-near={1}
+        shadow-camera-far={45}
+        shadow-camera-left={-22}
+        shadow-camera-right={22}
+        shadow-camera-top={22}
+        shadow-camera-bottom={-22}
       />
 
       {/* 4. 포차 전면을 채우는 따뜻한 보조 조명 */}
@@ -711,6 +718,8 @@ export const PochaScene: React.FC<PochaSceneProps> = ({
       <RainEffect weatherMood={weatherMood} />
       {/* 별헤는 밤: 맑고 깊은 밤하늘의 2,800개 별과 쏟아지는 유성우(별똥별) */}
       {weatherMood === 'starry' && <StarrySkyWithMeteors />}
+      {/* 노을빛 저녁: 서쪽 먼 지평선에 은은하게 살짝 걸려 있는 저녁 노을빛 잔상 */}
+      {weatherMood === 'sunset' && <DistantSunsetGlow />}
 
       {/* 포장마차 텐트 & 주방 */}
       <PochaTent weatherMood={weatherMood} />

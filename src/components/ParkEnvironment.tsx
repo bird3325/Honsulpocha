@@ -29,8 +29,8 @@ export const ParkEnvironment: React.FC<ParkEnvironmentProps> = ({ weatherMood = 
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      // 베이스 잔디색
-      ctx.fillStyle = isSnow ? '#2d3748' : isAutumn ? '#2c2214' : '#14281a';
+      // 베이스 잔디색 (눈 올 때 설원 톤, 그 외 일반 밤 잔디 톤)
+      ctx.fillStyle = isSnow ? '#2d3748' : '#14281a';
       ctx.fillRect(0, 0, 512, 512);
 
       // 잔디 뗏장 및 결 묘사
@@ -39,9 +39,7 @@ export const ParkEnvironment: React.FC<ParkEnvironmentProps> = ({ weatherMood = 
         const y = Math.random() * 512;
         ctx.fillStyle = isSnow
           ? 'rgba(255, 255, 255, 0.22)'
-          : isAutumn
-            ? (Math.random() > 0.5 ? '#4b3619' : '#5c4021')
-            : (Math.random() > 0.5 ? '#1f3d27' : '#0e1e13');
+          : Math.random() > 0.5 ? '#1f3d27' : '#0e1e13';
         ctx.fillRect(x, y, 2 + Math.random() * 4, 3 + Math.random() * 5);
       }
     }
@@ -50,16 +48,16 @@ export const ParkEnvironment: React.FC<ParkEnvironmentProps> = ({ weatherMood = 
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(6, 14);
     return tex;
-  }, [isSnow, isAutumn]);
+  }, [isSnow]);
 
   // 2. 공원 수목 데이터 (소나무, 단풍나무, 느티나무)
   const trees: ParkTreeData[] = useMemo(() => {
     const list: ParkTreeData[] = [];
-    const autumnColors = ['#c0392b', '#d35400', '#e67e22', '#f39c12', '#b71540'];
     const summerColors = ['#1e392a', '#274735', '#163121', '#1f402b', '#2d5a3c'];
     const snowColors = ['#2c3e50', '#34495e', '#1e272e', '#233140'];
 
-    const colors = isAutumn ? autumnColors : isSnow ? snowColors : summerColors;
+    // 일반 밤과 동일한 깊은 밤 수목 색상 유지
+    const colors = isSnow ? snowColors : summerColors;
 
     let tid = 0;
     // 1열 (공원 산책로와 인도 경계부 X: 11.5 ~ 14.5)
@@ -97,7 +95,7 @@ export const ParkEnvironment: React.FC<ParkEnvironmentProps> = ({ weatherMood = 
     }
 
     return list;
-  }, [isAutumn, isSnow]);
+  }, [isSnow]);
 
   return (
     <group>
@@ -106,7 +104,7 @@ export const ParkEnvironment: React.FC<ParkEnvironmentProps> = ({ weatherMood = 
         <planeGeometry args={[31, 72]} />
         <meshStandardMaterial
           map={grassTexture}
-          color={isSnow ? '#ecf0f1' : isAutumn ? '#4b3519' : '#1e382b'}
+          color={isSnow ? '#ecf0f1' : '#1e382b'}
           roughness={isSnow ? 0.95 : 0.8}
         />
       </mesh>
@@ -121,7 +119,7 @@ export const ParkEnvironment: React.FC<ParkEnvironmentProps> = ({ weatherMood = 
       <mesh position={[16, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[2.6, 72]} />
         <meshStandardMaterial
-          color={isSnow ? '#dcdde1' : isAutumn ? '#5c4326' : '#3e3124'}
+          color={isSnow ? '#dcdde1' : '#3e3124'}
           roughness={0.92}
         />
       </mesh>

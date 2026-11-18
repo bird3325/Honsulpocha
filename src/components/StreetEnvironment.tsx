@@ -209,9 +209,9 @@ export const StreetEnvironment: React.FC<StreetEnvironmentProps> = ({ weatherMoo
       <mesh position={[-6, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[42, 70]} />
         <meshStandardMaterial
-          color={isSnow ? '#2d3436' : isRain ? '#0b0d11' : isAutumn ? '#191516' : '#14171d'}
-          roughness={isRain ? 0.12 : isSnow ? 0.85 : isAutumn ? 0.6 : 0.4}
-          metalness={isRain ? 0.55 : isAutumn ? 0.15 : 0.1}
+          color={isSnow ? '#2d3436' : isRain ? '#0b0d11' : '#14171d'}
+          roughness={isRain ? 0.12 : isSnow ? 0.85 : 0.4}
+          metalness={isRain ? 0.55 : 0.1}
         />
       </mesh>
 
